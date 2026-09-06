@@ -1,0 +1,29 @@
+{
+  "kind": "Listing",
+  "data": {
+    "children": [
+      {
+        "kind": "t3",
+        "data": {
+          "id": "abc123",
+          "title": "[DE] [H] 4x32GB DDR4 2133 ECC RDIMM Samsung [W] PayPal EUR 240",
+          "selftext": "Pulled from a decommissioned server. Ships from Germany. EUR 240 shipped.",
+          "permalink": "/r/homelabsales/comments/abc123/",
+          "author": "anon_seller_eu",
+          "created_utc": 1757145600
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "def456",
+          "title": "[USA] [H] 8x16GB DDR4 ECC 2400 [W] $200 PayPal local",
+          "selftext": "US only, no international shipping. $200.",
+          "permalink": "/r/homelabsales/comments/def456/",
+          "author": "anon_seller_us",
+          "created_utc": 1757150000
+        }
+      }
+    ]
+  }
+}

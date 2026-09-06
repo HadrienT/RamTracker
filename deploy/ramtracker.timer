@@ -1,0 +1,23 @@
+# Rapport hebdomadaire (WP09). Le cycle de collecte, lui, tourne en continu via
+# ramtracker.service (ramtracker loop) et n'a pas besoin de minuterie.
+#
+# Installer sous le nom `ramtracker-report.timer` avec un service associé :
+#
+#   [Unit]
+#   Description=RamTracker — rapport hebdomadaire
+#   [Service]
+#   Type=oneshot
+#   User=ramtracker
+#   WorkingDirectory=/opt/ramtracker
+#   EnvironmentFile=/opt/ramtracker/.env
+#   ExecStart=/opt/ramtracker/.venv/bin/ramtracker report --weekly
+
+[Unit]
+Description=RamTracker — rapport hebdomadaire
+
+[Timer]
+OnCalendar=Sun 09:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

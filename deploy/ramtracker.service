@@ -1,0 +1,22 @@
+[Unit]
+Description=RamTracker — veille marché DDR4 ECC serveur
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Tourne à côté d'OpenHands sur le serveur cible. Adapter User/WorkingDirectory.
+User=ramtracker
+WorkingDirectory=/opt/ramtracker
+EnvironmentFile=/opt/ramtracker/.env
+# `loop` porte son propre ordonnanceur (cadence + gigue par source).
+ExecStart=/opt/ramtracker/.venv/bin/ramtracker loop
+Restart=on-failure
+RestartSec=30
+Nice=10
+# Le LLM est une ressource partagée : ne jamais préempter OpenHands.
+CPUWeight=20
+IOWeight=20
+
+[Install]
+WantedBy=multi-user.target

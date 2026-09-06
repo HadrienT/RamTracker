@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "itemSummaries": [
+    {
+      "itemId": "v1|1200000000001|0",
+      "title": "192 Go DDR4 ECC RDIMM 2400 (6x32) serveur - enchère",
+      "price": { "value": "150.00", "currency": "EUR" },
+      "currentBidPrice": { "value": "150.00", "currency": "EUR" },
+      "itemWebUrl": "https://www.ebay.fr/itm/1200000000001",
+      "buyingOptions": ["AUCTION"],
+      "itemLocation": { "country": "FR" },
+      "seller": { "username": "seller_anon_9" },
+      "itemEndDate": "2026-09-06T12:30:00.000Z",
+      "itemCreationDate": "2026-09-01T12:30:00.000Z"
+    }
+  ]
+}

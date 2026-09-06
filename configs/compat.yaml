@@ -1,0 +1,92 @@
+# Matrice de qualification — cible : Supermicro X10DRi-T4+
+# Source : blueprint/10-HARDWARE-TARGET.md §3 et §4.
+# Livré nominalement par WP00. Les tables Hynix/Micron sont partielles :
+# à compléter contre les fiches produit constructeur, PAS contre des annonces.
+
+generation:
+  accept: [ddr4, pc4]
+  reject: [ddr3, pc3, ddr5]
+
+registration:
+  accept: [rdimm, lrdimm]
+  reject: [udimm_non_ecc]
+
+form_factor:
+  accept: [dimm_288]
+  reject: [sodimm, dimm_260]
+
+speed_mts:
+  native: [2133, 2400]
+  accept_downclock: [2666, 2933, 3200]
+
+ranks:
+  accept: ["1Rx4", "2Rx4", "2Rx8", "4Rx4", "1Rx8"]
+  reject: ["x16"]
+
+capacity_gb:
+  accept: [8, 16, 32, 64]
+  reject: [4]
+
+# Marques connues pour du RDIMM/LRDIMM serveur. Les modules Dell/HPE sont
+# généralement OK en DDR4 — à signaler, pas à rejeter (champ `flag`).
+brands:
+  accept: [samsung, hynix, "sk hynix", micron, kingston, crucial]
+  flag: [dell, hpe, hp, lenovo, ibm, cisco]
+
+part_numbers:
+  samsung:
+    family:
+      M393: rdimm
+      M386: lrdimm
+      M378: reject
+      M471: reject
+    density:
+      A1G43: 8
+      A2G40: 16
+      A4K40: 32
+      A8K40: 64
+    speed:
+      CPB: 2133
+      CRC: 2400
+      CTD: 2666
+  hynix:
+    # [À CONFIRMER] au spike WP00 — valeurs de départ d'après 10-HARDWARE-TARGET.md §4
+    family:
+      HMA84GR7: rdimm
+      HMA42GR7: rdimm
+      HMAA8GL7: lrdimm
+    density:
+      HMA42GR7: 16
+      HMA84GR7: 32
+      HMAA8GL7: 64
+    speed:
+      TF: 2133
+      UH: 2400
+      "R4": 2400
+  micron:
+    # [À CONFIRMER] au spike WP00
+    family:
+      MTA18ASF: rdimm
+      MTA36ASF: rdimm
+      MTA72ASS: lrdimm
+    density:
+      MTA18ASF2G72: 16
+      MTA36ASF4G72: 32
+    speed:
+      PDZ: 2133
+      PZ: 2400
+
+reject_keywords:
+  - sodimm
+  - "so-dimm"
+  - "so dimm"
+  - portable
+  - laptop
+  - ordinateur portable
+  - notebook
+  - ddr3
+  - pc3
+  - ddr5
+  - pc5
+  - "non-ecc"
+  - "non ecc"

@@ -1,0 +1,44 @@
+{
+  "href": "https://api.ebay.com/buy/browse/v1/item_summary/search?q=DDR4+ECC+RDIMM",
+  "total": 3,
+  "limit": 200,
+  "itemSummaries": [
+    {
+      "itemId": "v1|1100000000001|0",
+      "title": "Lot de 4 barrettes 16Go DDR4 ECC REG Samsung 2133 M393A2G40EB1-CPB",
+      "shortDescription": "Retirées d'un serveur Dell R730, testées memtest.",
+      "price": { "value": "180.00", "currency": "EUR" },
+      "itemWebUrl": "https://www.ebay.fr/itm/1100000000001",
+      "buyingOptions": ["FIXED_PRICE"],
+      "itemLocation": { "country": "FR", "postalCode": "75***" },
+      "seller": { "username": "seller_anon_1", "feedbackPercentage": "99.5" },
+      "shippingOptions": [
+        { "shippingCost": { "value": "6.90", "currency": "EUR" }, "shippingCostType": "FIXED" }
+      ],
+      "itemCreationDate": "2026-09-06T08:12:00.000Z"
+    },
+    {
+      "itemId": "v1|1100000000002|0",
+      "title": "DDR4 32GB PC4-2400T ECC RDIMM serveur - remise en main propre",
+      "price": { "value": "95.00", "currency": "EUR" },
+      "itemWebUrl": "https://www.ebay.fr/itm/1100000000002",
+      "buyingOptions": ["FIXED_PRICE", "BEST_OFFER"],
+      "itemLocation": { "country": "FR" },
+      "seller": { "username": "seller_anon_2" },
+      "itemCreationDate": "2026-09-06T09:03:00.000Z"
+    },
+    {
+      "itemId": "v1|1100000000003|0",
+      "title": "8Go DDR4 ECC 2133 - port gratuit",
+      "price": { "value": "22.00", "currency": "EUR" },
+      "itemWebUrl": "https://www.ebay.fr/itm/1100000000003",
+      "buyingOptions": ["FIXED_PRICE"],
+      "itemLocation": { "country": "FR" },
+      "seller": { "username": "seller_anon_3" },
+      "shippingOptions": [
+        { "shippingCost": { "value": "0.00", "currency": "EUR" } }
+      ],
+      "itemCreationDate": "2026-09-06T10:00:00.000Z"
+    }
+  ]
+}

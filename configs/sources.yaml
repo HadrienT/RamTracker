@@ -1,0 +1,34 @@
+# Configuration par source : requêtes, marchés, cadence, gigue.
+# Source : blueprint/06-CONFIG.md §3. Cadence : ne jamais durcir (WP08 §3).
+
+ebay:
+  enabled: true
+  interval_min: 10
+  jitter_min: 2
+  marketplaces: [EBAY_FR, EBAY_DE]
+  category_ids: ["170083"]        # [À CONFIRMER] au spike WP00
+  queries:
+    - "DDR4 ECC RDIMM"
+    - "DDR4 ECC REG serveur"
+    - "PC4-2133P"
+    - "PC4-2400T"
+  price_range_eur: [15, 3000]
+  limit: 200
+
+reddit:
+  enabled: false                  # activé en WP08
+  interval_min: 15
+  jitter_min: 3
+  subreddits: [homelabsales]
+  shippable_from: [EU, UK, FR, DE, NL, BE, GB]
+
+leboncoin:
+  enabled: false                  # activé en WP08
+  interval_min: 75
+  jitter_min: 20
+  category: 17
+  queries:
+    - "DDR4 ECC"
+    - "DDR4 REG serveur"
+  impersonate: chrome
+  max_pages: 1                    # jamais de pagination profonde

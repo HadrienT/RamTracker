@@ -1,0 +1,58 @@
+# Barrières, garde-fous, politique d'enchères, anti-spam.
+# Source : blueprint/06-CONFIG.md §4.
+# INTERDIT n°1 : aucune de ces valeurs n'est écrite en dur dans le code.
+# Les montants sont des Decimal sérialisés en chaîne.
+
+barriers:
+  hard_ceiling_eur_per_gb: "3.50"   # barrière absolue
+  min_discount: 0.25                # barrière relative, contre l'indice glissant
+
+guards:
+  plausibility_floor_eur_per_gb: "0.50"   # en dessous : bug de parsing, renvoi au LLM
+  min_total_gb: 32
+  min_confidence: 0.80                    # seuil de court-circuit de la cascade
+
+shipping:
+  default_estimate_eur: "12.00"           # port estimé quand la source ne le donne pas (tracé)
+
+currency:
+  # Taux vers l'EUR — à rafraîchir périodiquement (Reddit cote surtout en USD).
+  rates_to_eur:
+    USD: "0.92"
+    GBP: "1.17"
+
+market_index:
+  window_days: 30
+  min_sample_size: 20               # en dessous : mode observation
+  refresh_interval_min: 60
+  capacity_buckets: [8, 16, 32, 64]
+
+observation_mode:
+  enabled: true
+  until: "2026-09-20"
+
+auction:
+  gate_minutes: 90
+  bid_increment_eur: "5.00"
+  notify_once: true
+
+spam:
+  daily_cap_urgent: 6
+  re_alert_min_drop_pct: 10
+  quiet_hours:
+    from: "23:00"
+    to: "07:00"
+    downgrade_to: 3
+
+llm:
+  enabled: false                    # activé en WP07
+  concurrency: 1                    # JAMAIS plus (PRIMER §5.9)
+  batch_size: 4
+  timeout_s: 45
+  urgent_lane_margin: 0.50
+  deferred_drain_interval_min: 30
+  remote_fallback: true             # voie urgente uniquement
+
+watchdog:
+  empty_cycles_before_alert: 3
+  min_prior_activity: 5
