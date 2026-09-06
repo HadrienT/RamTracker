@@ -1,0 +1,26 @@
+# secrets & config locale
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# données
+*.db
+*.db-wal
+*.db-shm
+data/
+backups/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# divers
+.DS_Store

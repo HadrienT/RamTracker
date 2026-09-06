@@ -1,0 +1,1376 @@
+<title>RamTracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F5F7F3; --surface:#FFFFFF; --surface-2:#ECF0EA;
+  --ink:#0E1712; --ink-2:#3C4C43; --ink-3:#6B7C72;
+  --rule:#D5DED5; --rule-2:#E6ECE5;
+  --pcb:#14684A; --pcb-soft:#E2EEE7;
+  --brass:#9A6E17; --brass-soft:#F5EAD2;
+  --alert:#B23A22; --alert-soft:#F8E4DE;
+  --shadow:0 1px 2px rgba(14,23,18,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0B110D; --surface:#131B16; --surface-2:#1A241D;
+    --ink:#DFE7DF; --ink-2:#A8B6AC; --ink-3:#7E8D83;
+    --rule:#28352C; --rule-2:#1E2922;
+    --pcb:#4FAE80; --pcb-soft:#15291F;
+    --brass:#D9A94F; --brass-soft:#2A2114;
+    --alert:#E07A62; --alert-soft:#2E1A15;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0B110D; --surface:#131B16; --surface-2:#1A241D;
+  --ink:#DFE7DF; --ink-2:#A8B6AC; --ink-3:#7E8D83;
+  --rule:#28352C; --rule-2:#1E2922;
+  --pcb:#4FAE80; --pcb-soft:#15291F;
+  --brass:#D9A94F; --brass-soft:#2A2114;
+  --alert:#E07A62; --alert-soft:#2E1A15;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:"Source Serif 4",Georgia,serif; font-size:17px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px 120px}
+.col{max-width:680px}
+h1,h2,h3,h4,.dpl{font-family:Archivo,"Helvetica Neue",Arial,sans-serif;text-wrap:balance}
+code,kbd,.mono,.num{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+a{color:var(--pcb);text-underline-offset:3px;text-decoration-thickness:1px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--brass);outline-offset:3px;border-radius:2px}
+
+/* ---------- en-tête ---------- */
+.masthead{border-bottom:1px solid var(--rule);padding:52px 0 30px;margin-bottom:44px}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--brass);font-weight:600}
+h1{font-size:clamp(38px,6.2vw,60px);line-height:1.02;font-weight:700;letter-spacing:-.026em;margin:14px 0 0}
+h1 em{font-style:normal;color:var(--pcb)}
+.standfirst{font-size:20px;line-height:1.5;color:var(--ink-2);margin:18px 0 0;max-width:640px}
+
+/* étiquette machine cible */
+.tag{
+  margin-top:34px;border:1px solid var(--rule);background:var(--surface);border-radius:3px;
+  box-shadow:var(--shadow);overflow:hidden;max-width:760px;
+}
+.tag-hd{
+  background:var(--pcb);color:#F5F7F3;padding:8px 14px;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.09em;font-weight:600;
+  display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+:root[data-theme="dark"] .tag-hd,:root:not([data-theme="light"]) .tag-hd{color:#0B110D}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .tag-hd{color:#F5F7F3}}
+.tag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:0}
+.tag-cell{padding:11px 14px;border-right:1px solid var(--rule-2);border-top:1px solid var(--rule-2)}
+.tag-cell:last-child{border-right:0}
+.tag-k{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.tag-v{font-family:Archivo,sans-serif;font-size:15px;font-weight:600;margin-top:3px;letter-spacing:-.01em}
+
+/* ---------- nav ---------- */
+nav.toc{
+  position:sticky;top:0;z-index:20;background:var(--ground);
+  border-bottom:1px solid var(--rule);margin:0 0 44px;padding:9px 0;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+}
+nav.toc ol{display:flex;gap:5px;list-style:none;margin:0;padding:0;min-width:max-content}
+nav.toc a{
+  display:block;padding:5px 11px;border-radius:3px;text-decoration:none;
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.03em;
+  color:var(--ink-2);white-space:nowrap;border:1px solid transparent;
+}
+nav.toc a:hover{background:var(--surface-2);color:var(--ink);border-color:var(--rule)}
+
+/* ---------- sections ---------- */
+section{margin-bottom:76px;scroll-margin-top:64px}
+.sec-hd{display:flex;align-items:baseline;gap:16px;border-top:2px solid var(--ink);padding-top:12px;margin-bottom:26px}
+.sec-n{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;color:var(--brass);flex:none;padding-top:5px}
+h2{font-size:clamp(25px,3.4vw,33px);font-weight:700;letter-spacing:-.02em;line-height:1.14;margin:0}
+h3{font-size:20px;font-weight:600;letter-spacing:-.012em;margin:38px 0 10px}
+h4{font-size:15px;font-weight:600;letter-spacing:.02em;margin:26px 0 8px;color:var(--ink-2)}
+p{margin:0 0 15px}
+.col ul,.col ol{margin:0 0 15px;padding-left:22px}
+.col li{margin-bottom:7px}
+strong{font-weight:600}
+.lede{font-size:19px;color:var(--ink-2);line-height:1.55;margin-bottom:24px}
+
+/* ---------- composants ---------- */
+.callout{
+  border-left:3px solid var(--brass);background:var(--brass-soft);
+  padding:16px 20px;margin:24px 0;border-radius:0 3px 3px 0;
+}
+.callout.warn{border-left-color:var(--alert);background:var(--alert-soft)}
+.callout.pcb{border-left-color:var(--pcb);background:var(--pcb-soft)}
+.callout p:last-child{margin-bottom:0}
+.callout .ct{font-family:Archivo,sans-serif;font-weight:600;font-size:13.5px;letter-spacing:.02em;display:block;margin-bottom:6px;text-transform:uppercase}
+.callout.warn .ct{color:var(--alert)}
+.callout.pcb .ct{color:var(--pcb)}
+.callout:not(.warn):not(.pcb) .ct{color:var(--brass)}
+
+.wide{max-width:100%;overflow-x:auto;margin:26px 0;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14.5px;background:var(--surface)}
+th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+thead th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);border-bottom:1px solid var(--rule);font-weight:600;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0}
+td.mono,td .num{font-size:13.5px}
+caption{caption-side:bottom;text-align:left;font-size:13.5px;color:var(--ink-3);padding-top:9px;font-style:italic}
+
+pre{
+  background:var(--surface);border:1px solid var(--rule);border-radius:3px;
+  padding:15px 17px;overflow-x:auto;font-size:13px;line-height:1.62;margin:20px 0;
+  font-family:"IBM Plex Mono",monospace;
+}
+pre .c{color:var(--ink-3)}
+pre .k{color:var(--pcb);font-weight:500}
+pre .s{color:var(--brass)}
+:not(pre)>code{
+  background:var(--surface-2);padding:1px 5px;border-radius:3px;font-size:.855em;
+  border:1px solid var(--rule-2);
+}
+
+.pill{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;border-radius:2px;white-space:nowrap;
+}
+.p-must{background:var(--pcb);color:var(--ground)}
+.p-no{background:var(--alert-soft);color:var(--alert);border:1px solid var(--alert)}
+.p-mid{background:var(--brass-soft);color:var(--brass);border:1px solid var(--brass)}
+.p-def{background:var(--surface-2);color:var(--ink-3);border:1px solid var(--rule)}
+
+/* accents SVG pilotés par les tokens de thème */
+svg .acc{stroke:var(--brass);fill:none}
+svg .bar{fill:var(--pcb)}
+svg .bar-hi{fill:var(--brass)}
+svg text.acct{fill:var(--brass);stroke:none}
+svg .accf{fill:var(--brass);stroke:var(--brass)}
+svg text.accf-t{fill:var(--ground);stroke:none}
+
+figure{margin:30px 0}
+figure svg{display:block;max-width:100%;height:auto;color:var(--ink)}
+figcaption{font-size:13.5px;color:var(--ink-3);margin-top:11px;font-style:italic;max-width:680px}
+
+/* fiches ADR */
+.adr{border:1px solid var(--rule);background:var(--surface);border-radius:3px;margin:16px 0;box-shadow:var(--shadow)}
+.adr-hd{display:flex;gap:12px;align-items:baseline;padding:13px 18px 0}
+.adr-n{font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;color:var(--brass);flex:none}
+.adr-t{font-family:Archivo,sans-serif;font-size:17px;font-weight:600;letter-spacing:-.012em;line-height:1.25}
+.adr-b{padding:8px 18px 16px 18px;font-size:15.5px;line-height:1.58;color:var(--ink-2)}
+.adr-b p{margin:0 0 9px}
+.adr-b p:last-child{margin:0}
+.adr-b b{color:var(--ink)}
+
+/* grille phases */
+.phases{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin:26px 0;max-width:100%}
+.ph{border:1px solid var(--rule);background:var(--surface);border-radius:3px;overflow:hidden;display:flex;flex-direction:column}
+.ph-hd{padding:11px 15px;border-bottom:1px solid var(--rule-2);display:flex;gap:10px;align-items:baseline;background:var(--surface-2)}
+.ph-n{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--brass)}
+.ph-t{font-family:Archivo,sans-serif;font-weight:600;font-size:16px;letter-spacing:-.012em}
+.ph-meta{padding:8px 15px;border-bottom:1px solid var(--rule-2);font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:4px 14px}
+.ph-body{padding:11px 15px 14px;font-size:14.5px;line-height:1.5;flex:1}
+.ph-body ol{margin:0;padding-left:0;list-style:none}
+.ph-body li{margin-bottom:9px;display:flex;gap:9px}
+.ph-body li:last-child{margin-bottom:0}
+.ph-id{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink-3);flex:none;padding-top:2px;min-width:30px}
+.ph-crit{border-color:var(--brass)}
+.ph-crit .ph-hd{background:var(--brass-soft)}
+
+.dod{background:var(--surface-2);border-top:1px solid var(--rule-2);padding:9px 15px;font-size:13.5px;color:var(--ink-2)}
+.dod b{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);display:block;margin-bottom:3px}
+
+/* notif mockups */
+.notifs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:26px 0}
+.notif{border:1px solid var(--rule);border-radius:9px;background:var(--surface);padding:13px 15px;box-shadow:var(--shadow)}
+.notif.hi{border-left:4px solid var(--alert)}
+.notif.lo{border-left:4px solid var(--ink-3)}
+.n-app{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between}
+.n-title{font-family:Archivo,sans-serif;font-weight:700;font-size:17px;margin:5px 0 3px;letter-spacing:-.015em}
+.n-body{font-size:14px;line-height:1.45;color:var(--ink-2);font-family:"IBM Plex Mono",monospace}
+.n-act{margin-top:9px;display:flex;gap:7px;flex-wrap:wrap}
+.n-btn{font-family:Archivo,sans-serif;font-size:12px;font-weight:600;padding:4px 10px;border:1px solid var(--rule);border-radius:3px;color:var(--ink-2);background:var(--ground)}
+
+.foot{border-top:1px solid var(--rule);padding-top:22px;margin-top:60px;font-size:14px;color:var(--ink-3)}
+.foot a{color:var(--ink-2)}
+@media (prefers-reduced-motion:no-preference){a,.n-btn{transition:color .15s,background .15s,border-color .15s}}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="kicker">Blueprint d'architecture · septembre 2026</div>
+  <h1>Acheter la RAM que <em>personne d'autre ne veut</em></h1>
+  <p class="standfirst">Un agent de veille qui traque la DDR4&nbsp;ECC sous-évaluée sur le marché de l'occasion, la qualifie au&nbsp;€/Go, et te réveille — mais seulement quand ça vaut la peine d'être réveillé.</p>
+
+  <div class="tag">
+    <div class="tag-hd"><span>CIBLE — SUPERMICRO X10DRi-T4+</span><span>À VÉRIFIER SUR LA QVL</span></div>
+    <div class="tag-grid">
+      <div class="tag-cell"><div class="tag-k">Socket</div><div class="tag-v">2 × LGA2011-3</div></div>
+      <div class="tag-cell"><div class="tag-k">Slots DIMM</div><div class="tag-v">16 (8/CPU)</div></div>
+      <div class="tag-cell"><div class="tag-k">Canaux</div><div class="tag-v">4/CPU, 2 DPC</div></div>
+      <div class="tag-cell"><div class="tag-k">Type</div><div class="tag-v">RDIMM / LRDIMM</div></div>
+      <div class="tag-cell"><div class="tag-k">Fréquence</div><div class="tag-v">2133 · 2400</div></div>
+      <div class="tag-cell"><div class="tag-k">Max</div><div class="tag-v">1 To / 2 To</div></div>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Sommaire">
+  <ol>
+    <li><a href="#marche">Le marché</a></li>
+    <li><a href="#cible">Ce qu'on cherche</a></li>
+    <li><a href="#adr">Décisions</a></li>
+    <li><a href="#pipeline">Pipeline</a></li>
+    <li><a href="#sources">Sources</a></li>
+    <li><a href="#parseur">Le parseur</a></li>
+    <li><a href="#llm">Le LLM local</a></li>
+    <li><a href="#decision">Seuils</a></li>
+    <li><a href="#encheres">Enchères</a></li>
+    <li><a href="#notif">Notifications</a></li>
+    <li><a href="#plan">Plan &amp; DAG</a></li>
+    <li><a href="#ops">Exploitation</a></li>
+    <li><a href="#legal">Légal</a></li>
+    <li><a href="#budget">Budget</a></li>
+  </ol>
+</nav>
+
+<!-- ============ 1 MARCHÉ ============ -->
+<section id="marche">
+  <div class="sec-hd"><span class="sec-n">01</span><h2>Pourquoi ça vaut le coup de coder ça</h2></div>
+  <div class="col">
+    <p class="lede">Ton problème n'est pas que la DDR4 ECC est chère. C'est que <strong>2026 est la pire année possible pour en acheter</strong> — et que ta carte mère a une propriété qui te sort de l'impasse.</p>
+    <p>Les fondeurs ont basculé leur capacité vers la HBM et la DDR5 pour l'IA. La DDR4 serveur est devenue la victime collatérale : le refurb professionnel lui-même a pris 30 à 50&nbsp;%. La médiane du marché tourne autour de <span class="mono">9,34&nbsp;$/Go</span> toutes DDR4 ECC confondues.</p>
+    <p>Mais regarde la ventilation par fréquence :</p>
+  </div>
+
+  <div class="wide">
+  <table>
+    <caption>Prix constatés sur le marché refurb professionnel, relevés en septembre 2026. Les valeurs €/Go sont indicatives (conversion ≈ 0,92) et servent uniquement à calibrer le point de départ des seuils — le §08 explique pourquoi il ne faut surtout pas les figer en dur.</caption>
+    <thead><tr><th>Fréquence</th><th>Plage $/Go</th><th>≈ €/Go</th><th>Compatible X10DRi-T4+</th><th></th></tr></thead>
+    <tbody>
+      <tr><td class="mono">DDR4-2133</td><td class="mono">4,53 – 5,93</td><td class="mono">4,17 – 5,46</td><td>Native (E5 v3 &amp; v4)</td><td><span class="pill p-must">La cible</span></td></tr>
+      <tr><td class="mono">DDR4-2400</td><td class="mono">4,61 – 11,25</td><td class="mono">4,24 – 10,35</td><td>Native (E5 v4)</td><td><span class="pill p-mid">Bonne</span></td></tr>
+      <tr><td class="mono">DDR4-2666</td><td class="mono">6,23 – 12,06</td><td class="mono">5,73 – 11,10</td><td>Downclock → 2133/2400</td><td><span class="pill p-def">Payer plus pour rien</span></td></tr>
+      <tr><td class="mono">DDR4-3200</td><td class="mono">9,36 – 19,83</td><td class="mono">8,61 – 18,24</td><td>Downclock → 2133/2400</td><td><span class="pill p-def">À éviter</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <div class="callout pcb">
+      <span class="ct">L'arbitrage</span>
+      <p>La fréquence dont plus personne ne veut est <em>exactement</em> celle dont ta carte a besoin. Un X10DRi-T4+ tire le même bénéfice d'une barrette 2133 que d'une 3200 — il les fait toutes tourner à 2133 ou 2400. Tu peux donc chasser dans la bande la moins chère du marché <strong>sans aucun compromis fonctionnel</strong>. Ce n'est pas vrai pour la plupart des acheteurs : c'est ton avantage structurel, et c'est ce que le scraper doit exploiter.</p>
+    </div>
+    <p>Ce que ça représente pour remplir la machine, selon le €/Go que tu arrives à décrocher :</p>
+  </div>
+
+  <div class="wide">
+  <table>
+    <caption>Le delta entre le prix marché et une bonne affaire chassée patiemment se compte en centaines d'euros. C'est le budget que justifie le projet.</caption>
+    <thead><tr><th>Configuration</th><th>Total</th><th>@ 5,00 €/Go<br><span style="font-weight:400;text-transform:none;letter-spacing:0">prix marché</span></th><th>@ 3,00 €/Go<br><span style="font-weight:400;text-transform:none;letter-spacing:0">bonne affaire</span></th><th>@ 2,00 €/Go<br><span style="font-weight:400;text-transform:none;letter-spacing:0">excellente</span></th><th>Économie max</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">8 × 32 Go RDIMM</td><td class="mono">256 Go</td><td class="mono">1 280 €</td><td class="mono">768 €</td><td class="mono">512 €</td><td class="mono" style="color:var(--pcb);font-weight:600">− 768 €</td></tr>
+      <tr><td class="mono">16 × 16 Go RDIMM</td><td class="mono">256 Go</td><td class="mono">1 280 €</td><td class="mono">768 €</td><td class="mono">512 €</td><td class="mono" style="color:var(--pcb);font-weight:600">− 768 €</td></tr>
+      <tr><td class="mono">16 × 32 Go RDIMM</td><td class="mono">512 Go</td><td class="mono">2 560 €</td><td class="mono">1 536 €</td><td class="mono">1 024 €</td><td class="mono" style="color:var(--pcb);font-weight:600">− 1 536 €</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <p>Une remarque de méthode avant d'aller plus loin. Tu as demandé un scan <strong>toutes les 1 à 2 heures</strong>. Sur eBay et Leboncoin, une barrette ECC correctement prix part <em>en moins d'une heure</em> — souvent en vingt minutes. Or l'API eBay t'autorise 5 000 appels par jour gratuitement : passer à un scan toutes les 10 minutes sur cette source ne coûte rien et double tes chances. Le blueprint prévoit donc une <strong>cadence par source</strong> (§12), avec ta valeur de 1–2 h conservée comme paramètre configurable et appliquée là où elle est réellement contrainte, c'est-à-dire sur Leboncoin.</p>
+  </div>
+</section>
+
+<!-- ============ 2 CIBLE ============ -->
+<section id="cible">
+  <div class="sec-hd"><span class="sec-n">02</span><h2>Ce qu'on cherche, exactement</h2></div>
+  <div class="col">
+    <p class="lede">Tout le système repose sur cette matrice. Un filtre trop large te noie sous les faux positifs — et un scraper qui crie au loup toutes les heures finit en mode silencieux au bout de trois jours. Un filtre trop étroit rate les affaires.</p>
+    <p>Cette section produit le premier livrable du projet : un fichier <code>compat.yaml</code> versionné, consommé par le filtre de qualification. Rien d'autre ne peut être écrit avant lui.</p>
+  </div>
+
+  <div class="wide">
+  <table>
+    <caption>Matrice de compatibilité. Les mentions « exclure » sont des règles de rejet dur : elles éliminent l'essentiel du bruit d'un marché où « DDR4 ECC » désigne aussi bien une barrette de portable qu'un module serveur.</caption>
+    <thead><tr><th>Critère</th><th>Accepté</th><th>Rejeté</th><th>Pourquoi c'est piégeux</th></tr></thead>
+    <tbody>
+      <tr><td><b>Génération</b></td><td class="mono">DDR4 / PC4</td><td class="mono">DDR3, PC3, DDR5</td><td>« PC3-12800R » ressemble beaucoup à « PC4-19200R » dans un titre bâclé</td></tr>
+      <tr><td><b>Registre</b></td><td class="mono">RDIMM (REG), LRDIMM</td><td class="mono">UDIMM non-ECC</td><td>« ECC » seul ne suffit pas : l'ECC UDIMM existe, coûte plus cher au Go et est plus rare</td></tr>
+      <tr><td><b>Format</b></td><td class="mono">DIMM 288 broches</td><td class="mono">SODIMM, 260 broches</td><td>Beaucoup d'annonces « DDR4 ECC 16 Go » sont des SODIMM ECC de station mobile</td></tr>
+      <tr><td><b>Fréquence</b></td><td class="mono">2133, 2400</td><td>—</td><td>2666+ accepté mais <em>dépriorisé</em> : downclocke, donc surcoût pur</td></tr>
+      <tr><td><b>Organisation</b></td><td class="mono">1Rx4, 2Rx4, 2Rx8, 4Rx4</td><td class="mono">x16</td><td>Les rangs conditionnent le peuplement 2 DPC ; à tracer, pas à rejeter</td></tr>
+      <tr><td><b>Capacité module</b></td><td class="mono">8, 16, 32, 64 Go</td><td class="mono">4 Go</td><td>Le 4 Go sature les slots pour rien : mauvais €/Go effectif à l'échelle du serveur</td></tr>
+      <tr><td><b>Marque OEM</b></td><td>Samsung, Hynix, Micron, Kingston, Crucial</td><td>—</td><td>Les modules estampillés Dell/HPE sont généralement OK en DDR4 — à signaler, pas à rejeter</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <h3>Le décodeur de référence produit</h3>
+    <p>Voici l'astuce qui fait la moitié du travail du parseur. Les références constructeur sont <strong>auto-descriptives</strong>. Quand un vendeur colle sa photo d'étiquette ou recopie la référence dans le titre, tu n'as plus rien à deviner : capacité, rangs, fréquence et type sortent d'une table de correspondance, avec une confiance de 100&nbsp;%.</p>
+  </div>
+
+  <div class="wide">
+  <table>
+    <caption>Décodage Samsung, à répliquer pour SK Hynix (<span class="mono">HMA42GR7…</span> = 16 Go, <span class="mono">HMA84GR7…</span> = 32 Go, suffixe <span class="mono">-TF</span> = 2133, <span class="mono">-UH</span> = 2400) et Micron (<span class="mono">MTA18ASF2G72PDZ</span>, <span class="mono">MTA36ASF4G72PZ</span>). Table à compléter et à valider pendant le spike P0.3.</caption>
+    <thead><tr><th>Segment</th><th>Position</th><th>Valeurs</th></tr></thead>
+    <tbody>
+      <tr><td>Famille</td><td class="mono">M393</td><td>RDIMM DDR4 · <span class="mono">M386</span> = LRDIMM · <span class="mono">M378/M471</span> = UDIMM/SODIMM → <b>rejet</b></td></tr>
+      <tr><td>Densité</td><td class="mono">A1G43 / A2G40 / A4K40 / A8K40</td><td>8 Go · 16 Go · 32 Go · 64 Go</td></tr>
+      <tr><td>Vitesse</td><td class="mono">-CPB / -CRC / -CTD</td><td>2133 · 2400 · 2666</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <p>Exemple complet : <code>M393A4K40BB1-CRC</code> → RDIMM DDR4, 32 Go, 2Rx4, 2400 MHz. Zéro ambiguïté, zéro appel LLM. Une simple <code>grep</code> de motif <code>[A-Z]{1,3}\d{3}[A-Z0-9]{6,10}-[A-Z0-9]{2,4}</code> sur le titre et la description attrape une part significative des annonces sérieuses — typiquement celles des vendeurs pros et des démonteurs de datacenter, qui sont justement les meilleures.</p>
+    <div class="callout">
+      <span class="ct">Ce qu'il ne faut pas encoder</span>
+      <p>Ne code pas de règle sur le mélange RDIMM/LRDIMM ni sur l'appairage des rangs : ce sont des contraintes de <em>montage</em>, pas d'<em>achat</em>. Tu les traiteras au moment de peupler les slots. Le scraper qualifie des annonces, il ne planifie pas ta configuration mémoire — mélanger les deux responsabilités est le meilleur moyen de rater une bonne affaire parce qu'elle ne complète pas un kit théorique.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 ADR ============ -->
+<section id="adr">
+  <div class="sec-hd"><span class="sec-n">03</span><h2>Les six décisions structurantes</h2></div>
+  <div class="col">
+    <p class="lede">Ces choix conditionnent tout le reste. Les revenir en arrière plus tard coûte cher ; les prendre maintenant coûte une lecture.</p>
+  </div>
+
+  <div class="adr">
+    <div class="adr-hd"><span class="adr-n">ADR-1</span><span class="adr-t">Le parseur est le produit, pas le scraper</span></div>
+    <div class="adr-b">
+      <p><b>Décision.</b> L'étage d'extraction — transformer « Lot 4 barrettes 16Go DDR4 ECC REG 2133 » en une structure typée — est développé et testé <b>hors ligne</b>, sur un corpus figé de titres réels, sans aucun accès réseau.</p>
+      <p><b>Pourquoi.</b> C'est la seule partie difficile et la seule qui décide de la qualité des alertes. C'est aussi celle qui casse en dernier : les sites changent, les titres d'annonces non. En la découplant du réseau, tu obtiens une suite de tests déterministe qui tourne en une seconde, et tu peux itérer sur le parseur pendant que le collecteur Leboncoin est bloqué par DataDome.</p>
+      <p><b>Conséquence.</b> Le corpus doré (P0.2) devient un prérequis bloquant. Ne saute pas cette étape : c'est la plus ingrate et la plus rentable.</p>
+    </div>
+  </div>
+
+  <div class="adr">
+    <div class="adr-hd"><span class="adr-n">ADR-2</span><span class="adr-t">Sources hiérarchisées par coût d'accès, pas traitées à égalité</span></div>
+    <div class="adr-b">
+      <p><b>Décision.</b> eBay d'abord (API officielle), Reddit ensuite (API officielle), Leboncoin en dernier (DataDome).</p>
+      <p><b>Pourquoi.</b> eBay valide la chaîne complète — collecte, parsing, scoring, notification — en une soirée, avec une API documentée, gratuite et sanctionnée. Commencer par Leboncoin, c'est passer trois soirées sur l'anti-bot avant d'avoir la moindre notification sur ton téléphone, et découvrir ensuite que ton parseur ne marche pas.</p>
+      <p><b>Conséquence.</b> La tranche verticale du MVP ne contient qu'eBay. Leboncoin est une extension, pas un fondement.</p>
+    </div>
+  </div>
+
+  <div class="adr">
+    <div class="adr-hd"><span class="adr-n">ADR-3</span><span class="adr-t">Seuil relatif au marché observé, pas seuil absolu</span></div>
+    <div class="adr-b">
+      <p><b>Décision.</b> L'alerte se déclenche sur un écart au marché — « 34 % sous la médiane glissante 30 jours pour cette capacité » — et non sur un « moins de 2,50 €/Go » écrit en dur.</p>
+      <p><b>Pourquoi.</b> Le marché DDR4 a bougé de 30 à 50 % en un an. Un seuil absolu écrit aujourd'hui sera soit muet, soit hurlant dans trois mois, et tu ne t'en rendras pas compte. Un indice glissant construit sur tes propres observations s'auto-recalibre.</p>
+      <p><b>Conséquence.</b> Une période d'amorçage à froid où le système observe sans alerter, et une double barrière (plafond dur + décote relative) détaillée au §08.</p>
+    </div>
+  </div>
+
+  <div class="adr">
+    <div class="adr-hd"><span class="adr-n">ADR-4</span><span class="adr-t">Impersonation TLS avant navigateur headless</span></div>
+    <div class="adr-b">
+      <p><b>Décision.</b> Pour Leboncoin, tenter <code>curl_cffi</code> (empreinte JA3 de Chrome) sur le HTML brut avant de sortir Playwright.</p>
+      <p><b>Pourquoi.</b> DataDome bloque sur trois signaux : empreinte TLS/JA3, empreinte navigateur, réputation IP. Ta connexion domestique <b>est</b> une IP résidentielle française — le signal le plus dur à falsifier, tu l'as déjà gratuitement. Le signal qui te trahit est le JA3 d'un client Python standard, et <code>curl_cffi</code> le règle. Or les données sont déjà dans le HTML : Leboncoin est une application Next.js, tout le JSON de résultats vit dans <code>&lt;script id="__NEXT_DATA__"&gt;</code>. Il n'y a rien à rendre, donc rien qui justifie un navigateur — une extraction HTML est environ dix fois moins coûteuse en ressources.</p>
+      <p><b>Conséquence.</b> Playwright reste le plan B, isolé derrière la même interface de collecteur, activable par configuration sans toucher au reste.</p>
+    </div>
+  </div>
+
+  <div class="adr">
+    <div class="adr-hd"><span class="adr-n">ADR-5</span><span class="adr-t">SQLite et un seul processus</span></div>
+    <div class="adr-b">
+      <p><b>Décision.</b> Un fichier SQLite en mode WAL, un ordonnanceur en processus. Pas de PostgreSQL, pas de Redis, pas de Celery, pas de file de messages.</p>
+      <p><b>Pourquoi.</b> Le volume réel est de l'ordre de quelques centaines d'annonces par jour et d'une écriture toutes les dix minutes. Toute infrastructure au-delà de SQLite est une dette d'exploitation pure : plus de conteneurs à surveiller que d'annonces à traiter. La sauvegarde est un <code>cp</code>.</p>
+    </div>
+  </div>
+
+  <div class="adr">
+    <div class="adr-hd"><span class="adr-n">ADR-7</span><span class="adr-t">Le LLM est une ressource partagée et contrainte, pas un service élastique</span></div>
+    <div class="adr-b">
+      <p><b>Décision.</b> L'étage d'extraction vise le serveur LLM local qui sert déjà OpenHands, via un endpoint compatible OpenAI. L'API distante n'est qu'un repli, réservé aux cas urgents où le serveur local est saturé.</p>
+      <p><b>Pourquoi.</b> Le matériel est déjà là et déjà payé. Mais la conséquence est structurante : le dimensionnement ne se raisonne plus en coût mensuel, il se raisonne en <b>contention</b>. RamTracker ne doit jamais préempter une boucle agentique en cours — et la mesure du §07 montre que ce n'est pas un problème de débit, mais un problème de collision.</p>
+      <p><b>Conséquence.</b> Concurrence limitée à 1 côté RamTracker, deux voies d'appel (urgente et différée), et décodage contraint par grammaire pour rendre un modèle local fiable sur cette tâche.</p>
+    </div>
+  </div>
+
+  <div class="adr">
+    <div class="adr-hd"><span class="adr-n">ADR-6</span><span class="adr-t">Archiver la charge utile brute, toujours</span></div>
+    <div class="adr-b">
+      <p><b>Décision.</b> Le JSON ou le HTML original de chaque annonce est stocké tel quel, en plus de la version normalisée.</p>
+      <p><b>Pourquoi.</b> Quand tu amélioreras le parseur — et tu l'amélioreras vingt fois — tu voudras le rejouer sur l'historique pour mesurer ce que tu as gagné et ce que tu as cassé. Sans archive brute, chaque amélioration est un pari aveugle. C'est aussi ce qui alimente l'indice de marché rétroactivement le jour où tu ajoutes une capacité.</p>
+      <p><b>Conséquence.</b> Un champ <code>raw_payload</code> compressé. Le coût est négligeable ; l'absence est irrattrapable.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 PIPELINE ============ -->
+<section id="pipeline">
+  <div class="sec-hd"><span class="sec-n">04</span><h2>Le pipeline, étage par étage</h2></div>
+  <div class="col">
+    <p class="lede">Huit étages, deux points de persistance, une porte de confiance. Chaque étage est une fonction pure d'un type vers un autre — ce qui les rend testables un par un.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 1100 470" role="img" aria-label="Pipeline en huit étages : collecte, normalisation, extraction avec porte de confiance routant soit vers le repli LLM soit vers la quarantaine, puis qualification, prix, déduplication, scoring et notification. Deux points de persistance en SQLite.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="currentColor"/>
+        </marker>
+        <marker id="arb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" class="accf"/>
+        </marker>
+      </defs>
+      <g font-family="IBM Plex Mono, monospace" font-size="12">
+
+      <!-- rangée 1 -->
+      <rect x="20" y="40" width="150" height="54" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="95" y="63" text-anchor="middle" font-size="12.5" font-weight="600">1 · collecte</text>
+      <text x="95" y="80" text-anchor="middle" font-size="10.5" opacity=".62">par source</text>
+
+      <rect x="215" y="40" width="150" height="54" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="290" y="63" text-anchor="middle" font-size="12.5" font-weight="600">2 · normalise</text>
+      <text x="290" y="80" text-anchor="middle" font-size="10.5" opacity=".62">RawListing</text>
+
+      <rect x="410" y="40" width="150" height="54" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="485" y="63" text-anchor="middle" font-size="12.5" font-weight="600">3 · extrait</text>
+      <text x="485" y="80" text-anchor="middle" font-size="10.5" opacity=".62">règles + PN</text>
+
+      <!-- porte de confiance -->
+      <path d="M690 67 L 640 40 L 590 67 L 640 94 Z" class="acc" stroke-width="1.8"/>
+      <text x="640" y="64" text-anchor="middle" font-size="10.5" class="acct" font-weight="600">confiance</text>
+      <text x="640" y="78" text-anchor="middle" font-size="10.5" class="acct" font-weight="600">&gt; 0.8 ?</text>
+
+      <line x1="170" y1="67" x2="209" y2="67" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+      <line x1="365" y1="67" x2="404" y2="67" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+      <line x1="560" y1="67" x2="586" y2="67" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+
+      <!-- branche non -->
+      <path d="M640 94 L 640 150" class="acc" stroke-width="1.4" marker-end="url(#arb)"/>
+      <text x="650" y="120" font-size="10.5" class="acct">non</text>
+      <rect x="555" y="152" width="170" height="50" rx="3" class="acc" stroke-width="1.5" stroke-dasharray="5 3"/>
+      <text x="640" y="172" text-anchor="middle" font-size="12" class="acct" font-weight="600">repli LLM</text>
+      <text x="640" y="188" text-anchor="middle" font-size="10.5" class="acct" opacity=".85">lots de 20 · schéma strict</text>
+
+      <path d="M725 177 L 800 177 L 800 100" class="acc" stroke-width="1.4" marker-end="url(#arb)"/>
+      <text x="806" y="146" font-size="10.5" class="acct">résolu</text>
+
+      <path d="M555 177 L 470 177 L 470 216" stroke="currentColor" stroke-width="1.4" fill="none" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+      <rect x="390" y="218" width="160" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" opacity=".65"/>
+      <text x="470" y="240" text-anchor="middle" font-size="11.5" opacity=".7">quarantaine</text>
+      <text x="470" y="255" text-anchor="middle" font-size="10" opacity=".55">ni alerte, ni rejet</text>
+      <text x="378" y="200" text-anchor="end" font-size="10.5" opacity=".65">échec</text>
+
+      <!-- rangée 2 -->
+      <text x="800" y="90" text-anchor="middle" font-size="10.5" class="acct">oui</text>
+      <path d="M690 67 L 900 67 L 900 128" stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#ar)"/>
+
+      <rect x="825" y="130" width="150" height="54" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="900" y="153" text-anchor="middle" font-size="12.5" font-weight="600">4 · qualifie</text>
+      <text x="900" y="170" text-anchor="middle" font-size="10.5" opacity=".62">compat.yaml</text>
+
+      <path d="M900 184 L 900 250 L 690 250" stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#ar)"/>
+      <rect x="530" y="223" width="150" height="54" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="605" y="246" text-anchor="middle" font-size="12.5" font-weight="600">5 · prix</text>
+      <text x="605" y="263" text-anchor="middle" font-size="10.5" opacity=".62">+ port → €/Go</text>
+
+      <line x1="528" y1="250" x2="391" y2="250" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+      <rect x="235" y="223" width="150" height="54" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="310" y="246" text-anchor="middle" font-size="12.5" font-weight="600">6 · dédoublonne</text>
+      <text x="310" y="263" text-anchor="middle" font-size="10.5" opacity=".62">empreinte</text>
+
+      <path d="M310 277 L 310 330 L 530 330" stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#ar)"/>
+      <rect x="535" y="303" width="150" height="54" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="610" y="326" text-anchor="middle" font-size="12.5" font-weight="600">7 · score</text>
+      <text x="610" y="343" text-anchor="middle" font-size="10.5" opacity=".62">vs indice marché</text>
+
+      <line x1="685" y1="330" x2="824" y2="330" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+      <rect x="830" y="303" width="150" height="54" rx="3" class="accf" stroke-width="1.5"/>
+      <text x="905" y="326" text-anchor="middle" font-size="12.5" font-weight="600" class="accf-t">8 · notifie</text>
+      <text x="905" y="343" text-anchor="middle" font-size="10.5" class="accf-t" opacity=".85">ntfy · 2 priorités</text>
+
+      <!-- persistance -->
+      <path d="M290 94 L 290 400" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 4" opacity=".55"/>
+      <path d="M485 94 L 485 400" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 4" opacity=".55"/>
+      <rect x="215" y="400" width="330" height="42" rx="3" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".7"/>
+      <text x="380" y="418" text-anchor="middle" font-size="11.5" opacity=".8">SQLite — WAL</text>
+      <text x="380" y="433" text-anchor="middle" font-size="10" opacity=".6">raw_payload (ADR-6) + listings normalisées</text>
+      </g>
+    </svg>
+    <figcaption>La porte de confiance est le point d'articulation : elle route les titres ambigus vers un appel LLM structuré plutôt que de deviner, et met en quarantaine ce que ni les règles ni le modèle ne tranchent. Une annonce en quarantaine ne déclenche pas d'alerte mais n'est pas perdue — elle alimente le corpus doré de la prochaine itération du parseur.</figcaption>
+  </figure>
+
+  <div class="col">
+    <h3>Le modèle canonique</h3>
+    <p>Trois types suffisent. Tout collecteur produit un <code>RawListing</code> ; le parseur produit un <code>MemorySpec</code> ; le moteur produit un <code>Deal</code>. Les champs marqués <span class="mono">?</span> sont optionnels — et le fait qu'ils soient optionnels est une information en soi.</p>
+  </div>
+
+  <pre><span class="c"># domain/models.py — pydantic v2</span>
+
+<span class="k">class</span> RawListing:
+    source: Literal[<span class="s">"ebay"</span>, <span class="s">"leboncoin"</span>, <span class="s">"reddit"</span>]
+    external_id: str            <span class="c"># clé de dédoublonnage intra-source</span>
+    url: str
+    title: str
+    description: str | None
+    spec_hash: str             <span class="c"># sha256(titre+description normalisés) — clé du cache d'extraction</span>
+    price: Decimal
+    currency: str
+    shipping: Decimal | None    <span class="c"># None = inconnu, ≠ 0 = gratuit  ← distinction critique</span>
+    sale_type: Literal[<span class="s">"buy_now"</span>, <span class="s">"auction"</span>, <span class="s">"best_offer"</span>]
+    current_bid: Decimal | None
+    ends_at: datetime | None    <span class="c"># enchères uniquement</span>
+    seller_id: str | None
+    country: str
+    posted_at: datetime
+    raw_payload: bytes          <span class="c"># ADR-6, compressé</span>
+
+<span class="k">class</span> MemorySpec:
+    module_capacity_gb: int | None
+    module_count: int           <span class="c"># défaut 1</span>
+    total_gb: int | None        <span class="c"># dérivé, ou annoncé et vérifié</span>
+    kind: Literal[<span class="s">"rdimm"</span>, <span class="s">"lrdimm"</span>, <span class="s">"udimm_ecc"</span>, <span class="s">"unknown"</span>]
+    speed_mts: int | None       <span class="c"># 2133 | 2400 | 2666 …</span>
+    ranks: str | None           <span class="c"># "2Rx4"</span>
+    part_number: str | None
+    price_basis: Literal[<span class="s">"lot"</span>, <span class="s">"unit"</span>, <span class="s">"unknown"</span>]   <span class="c"># ← le champ qui évite les fausses alertes</span>
+    confidence: float           <span class="c"># 0.0 → 1.0</span>
+    method: Literal[<span class="s">"part_number"</span>, <span class="s">"rules"</span>, <span class="s">"llm"</span>]
+
+<span class="k">class</span> Deal:
+    listing: RawListing
+    spec: MemorySpec
+    total_cost: Decimal         <span class="c"># prix + port</span>
+    eur_per_gb: Decimal
+    market_ref: Decimal         <span class="c"># médiane glissante pour cette capacité</span>
+    discount: float             <span class="c"># 1 − (eur_per_gb / market_ref)</span>
+    urgency: Literal[<span class="s">"immediate"</span>, <span class="s">"quiet"</span>, <span class="s">"watch"</span>, <span class="s">"none"</span>]
+    max_bid: Decimal | None     <span class="c"># enchères : plafond pour rester sous le seuil</span></pre>
+
+  <div class="col">
+    <h3>Trois identités, pas une</h3>
+    <p>Il est tentant de croire qu'un identifiant d'annonce suffit à ne rien retraiter deux fois. Il en faut trois, parce qu'ils répondent à trois questions différentes — et celui qui économise le plus de travail n'est pas celui de l'annonce.</p>
+  </div>
+
+  <div class="wide">
+  <table>
+    <caption>Le <span class="mono">spec_hash</span> est la clé du système : il indexe l'extraction sur le <em>texte</em>, pas sur l'annonce. Un vendeur Leboncoin qui supprime et republie pour remonter dans le fil obtient un nouveau <span class="mono">list_id</span> mais garde son texte — donc zéro retraitement. Idem pour une même barrette mise en vente sur deux sources à la fois.</caption>
+    <thead><tr><th>Identité</th><th>Clé</th><th>Question posée</th><th>Étage</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">external_id</td><td class="mono">(source, id_source)</td><td>L'ai-je déjà vue&nbsp;?</td><td>Collecte, avant tout le reste</td></tr>
+      <tr><td class="mono">spec_hash</td><td class="mono">sha256(titre + description)</td><td>Ai-je déjà <b>compris ce texte</b>&nbsp;?</td><td>Cache d'extraction</td></tr>
+      <tr><td class="mono">fingerprint</td><td class="mono">(vendeur, capacité, quantité, tranche&nbsp;prix)</td><td>Ai-je déjà <b>alerté</b> là-dessus&nbsp;?</td><td>Notification</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <pre><span class="k">CREATE TABLE</span> spec_cache (
+  spec_hash          TEXT PRIMARY KEY,   <span class="c">-- indexé sur le TEXTE, pas sur l'annonce</span>
+  module_capacity_gb INTEGER,
+  module_count       INTEGER,
+  total_gb           INTEGER,
+  kind               TEXT,
+  speed_mts          INTEGER,
+  price_basis        TEXT,
+  confidence         REAL,
+  method             TEXT,                <span class="c">-- 'part_number' | 'rules' | 'llm'</span>
+  reject_reason      TEXT,                <span class="c">-- NULL si qualifiée  ← cache négatif</span>
+  created_at         TIMESTAMP
+);</pre>
+
+  <div class="col">
+    <p>Le <code>reject_reason</code> mérite une mention à part. On met aussi en cache les <strong>rejets</strong> : une annonce écartée n'est jamais réévaluée. Et comme le motif est conservé, le jour où tu corriges un bug du parseur tu sais exactement quels rejets rejouer sur l'historique archivé (ADR-6) — sans ce champ, un rejet est une décision définitive et invisible.</p>
+  </div>
+</section>
+
+<!-- ============ 5 SOURCES ============ -->
+<section id="sources">
+  <div class="sec-hd"><span class="sec-n">05</span><h2>Les sources, par ordre de difficulté</h2></div>
+  <div class="col">
+    <p class="lede">Trois sources suffisent pour couvrir le marché francophone et germanophone. Elles ne se valent ni en coût d'accès, ni en qualité de données, ni en risque.</p>
+  </div>
+
+  <div class="wide">
+  <table>
+    <caption>L'ordre de cette table est l'ordre d'implémentation. eBay valide la chaîne complète ; Leboncoin apporte le vrai gisement d'affaires C2C mais coûte le plus cher en effort.</caption>
+    <thead><tr><th>Source</th><th>Accès</th><th>Cadence</th><th>Qualité des titres</th><th>Enchères</th><th>Effort</th></tr></thead>
+    <tbody>
+      <tr><td><b>eBay</b> <span class="pill p-must">MVP</span></td><td>API Browse officielle<br><span class="mono" style="font-size:12.5px">5 000 appels/j gratuits</span></td><td class="mono">10 min</td><td>Bonne — champs structurés, port chiffré</td><td>Oui, natif</td><td>½ soirée</td></tr>
+      <tr><td><b>Reddit</b><br><span class="mono" style="font-size:12.5px">r/homelabsales</span></td><td>API OAuth officielle<br><span class="mono" style="font-size:12.5px">100 req/min</span></td><td class="mono">15 min</td><td>Excellente — format <span class="mono">[H]/[W]</span> imposé</td><td>Non</td><td>½ soirée</td></tr>
+      <tr><td><b>Leboncoin</b></td><td><span class="mono">__NEXT_DATA__</span> + JA3<br><span class="pill p-no">DataDome</span></td><td class="mono">60–90 min</td><td>Médiocre — texte libre, orthographe libre</td><td>Non</td><td>2–3 soirées</td></tr>
+      <tr><td><b>Kleinanzeigen</b> <span class="pill p-def">optionnel</span></td><td>HTML, protection légère</td><td class="mono">60 min</td><td>Moyenne</td><td>Non</td><td>1 soirée</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <h3>eBay — la source qui valide tout le reste</h3>
+    <p>Token applicatif par <code>client_credentials</code>, valable deux heures, à mettre en cache sur disque. Aucune adhésion au Partner Network n'est requise pour <code>item_summary/search</code>.</p>
+  </div>
+
+  <pre><span class="c"># 1. token applicatif (à mettre en cache, TTL 2h)</span>
+POST https://api.ebay.com/identity/v1/oauth2/token
+  Authorization: Basic base64(<span class="s">client_id:client_secret</span>)
+  grant_type=client_credentials
+  scope=https://api.ebay.com/oauth/api_scope
+
+<span class="c"># 2. recherche — achat immédiat, tri par nouveauté</span>
+GET https://api.ebay.com/buy/browse/v1/item_summary/search
+  ?q=DDR4 ECC RDIMM
+  &amp;category_ids=170083                <span class="c"># Mémoire (RAM) — à confirmer au spike</span>
+  &amp;filter=buyingOptions:{FIXED_PRICE|BEST_OFFER},price:[15..3000],priceCurrency:EUR
+  &amp;sort=newlyListed
+  &amp;limit=200                          <span class="c"># maximum autorisé</span>
+  X-EBAY-C-MARKETPLACE-ID: <span class="s">EBAY_FR</span>       <span class="c"># puis EBAY_DE, EBAY_IT…</span>
+  X-EBAY-C-ENDUSERCTX: contextualLocation=country=FR,zip=<span class="s">…</span>   <span class="c"># port réaliste</span>
+
+<span class="c"># 3. enchères — tri par fin imminente (voir §09)</span>
+  &amp;filter=buyingOptions:{AUCTION}&amp;sort=endingSoonest</pre>
+
+  <div class="col">
+    <div class="callout pcb">
+      <span class="ct">Budget d'appels</span>
+      <p>Quatre requêtes par cycle (FR et DE × achat et enchère), toutes les dix minutes, font <span class="mono">576 appels/jour</span> — soit <strong>11 % du quota gratuit</strong>. Tu as largement de quoi ajouter des marchés, des requêtes par référence constructeur, et de la pagination. Le <code>X-EBAY-C-ENDUSERCTX</code> n'est pas cosmétique : sans lui, les frais de port renvoyés sont ceux du marché par défaut, et ton €/Go est faux.</p>
+    </div>
+
+    <h3>Leboncoin — le gisement, et le mur</h3>
+    <p>Leboncoin n'a pas d'API publique. En revanche, c'est une application Next.js : la page de résultats embarque l'intégralité du JSON des annonces dans une balise script. Tu n'as pas besoin de parser le DOM, et encore moins de le rendre.</p>
+  </div>
+
+  <pre>GET https://www.leboncoin.fr/recherche?text=DDR4+ECC&amp;category=17&amp;sort=time
+     <span class="c"># via curl_cffi, impersonate="chrome" → empreinte JA3 crédible</span>
+
+<span class="c"># puis, dans le HTML :</span>
+&lt;script id="<span class="s">__NEXT_DATA__</span>" type="application/json"&gt; … &lt;/script&gt;
+  → props.pageProps.searchData.ads                    <span class="c"># chemin courant</span>
+  → props.pageProps.initialProps.searchData.ads       <span class="c"># repli anciennes révisions</span>
+
+<span class="c"># chaque annonce :</span>
+  list_id · subject · body · price[0] · url
+  location{city, zipcode, region_name} · owner{type} · attributes[] · index_date</pre>
+
+  <div class="col">
+    <div class="callout warn">
+      <span class="ct">Ce à quoi tu t'attaques</span>
+      <p>Leboncoin bloque en moyenne 9,5 millions de requêtes malveillantes par jour, dont environ 90 % de scraping. DataDome évalue l'empreinte TLS/JA3, l'empreinte navigateur et la réputation IP. Les proxys datacenter sont éliminés d'office.</p>
+      <p>Ta position est cependant bien meilleure que celle d'un scraper commercial : tu as une IP résidentielle française, et tu fais <em>vingt-quatre requêtes par jour</em>. Ce profil est indiscernable d'un utilisateur qui consulte la même recherche sauvegardée. Écris le collecteur pour rester dans ce profil — une requête à la fois, un délai aléatoire, jamais de parallélisme, jamais de pagination profonde — et non pour « passer » la protection.</p>
+    </div>
+    <p>Le collecteur doit détecter la page de défi (code 403, ou présence d'un marqueur DataDome dans le corps) et la traiter comme un état de premier ordre, pas comme une erreur : passage en repli exponentiel, notification technique après trois échecs consécutifs, et <strong>jamais</strong> de nouvelle tentative immédiate. Une boucle de retry agressive est exactement le signal qui transforme un blocage temporaire en blocage durable.</p>
+
+    <h3>Reddit — la source de prix plus que d'achat</h3>
+    <p><span class="mono">r/homelabsales</span> impose un format de titre <span class="mono">[Pays] [H] ce que je vends [W] ce que je veux</span>, ce qui en fait le corpus le plus propre des trois. Mais c'est un marché majoritairement américain : port transatlantique et droits de douane rendent la plupart des annonces inintéressantes à l'achat.</p>
+    <p>Traite-la donc en priorité comme un <strong>capteur de prix</strong> qui alimente l'indice de marché du §08, avec un filtre pays qui ne remonte à l'alerte que ce qui est expédiable depuis l'Europe. C'est aussi le meilleur endroit pour faire tes premières observations pendant la période d'amorçage à froid, avant que tes propres données ne suffisent.</p>
+  </div>
+</section>
+
+<!-- ============ 6 PARSEUR ============ -->
+<section id="parseur">
+  <div class="sec-hd"><span class="sec-n">06</span><h2>Le parseur — là où se gagne ou se perd le projet</h2></div>
+  <div class="col">
+    <p class="lede">Extraire « 4 modules de 16 Go, RDIMM, 2133 » d'un titre écrit à la va-vite par un particulier est le seul problème réellement difficile du système. Tout le reste est de la plomberie.</p>
+    <p>La cascade fonctionne du plus déterministe au plus coûteux, et s'arrête dès qu'elle est sûre.</p>
+  </div>
+
+  <div class="wide">
+  <table>
+    <caption>Cascade d'extraction. En pratique, les deux premiers niveaux traitent la grande majorité des annonces ; le LLM ne voit que le résidu ambigu, ce qui maintient le coût au niveau de quelques euros par mois (§14).</caption>
+    <thead><tr><th>Étage</th><th>Méthode</th><th>Confiance</th><th>Coût</th><th>Traite</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">1</td><td>Résolution par référence constructeur (§02)</td><td class="mono">1.00</td><td>nul</td><td>Vendeurs pros, démonteurs DC</td></tr>
+      <tr><td class="mono">2</td><td>Grammaire d'expressions régulières</td><td class="mono">0.60 – 0.95</td><td>nul</td><td>Titres bien formés</td></tr>
+      <tr><td class="mono">3</td><td>Contrôles de cohérence croisés</td><td>ajuste ±</td><td>nul</td><td>Confirme ou invalide le niveau 2</td></tr>
+      <tr><td class="mono">4</td><td><b>Préfiltre €/Go admissible</b> (§07)</td><td>—</td><td>nul</td><td>Écarte ce qui ne peut pas être une affaire</td></tr>
+      <tr><td class="mono">5</td><td>Repli LLM à sortie contrainte</td><td class="mono">0.85</td><td>≈ 10 s de GPU</td><td>Le résidu ambigu <em>et</em> potentiellement intéressant</td></tr>
+      <tr><td class="mono">6</td><td>Quarantaine</td><td>—</td><td>nul</td><td>Le reste — revue manuelle mensuelle</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <h3>Les cas qui font mal</h3>
+    <p>Constitue ton corpus doré à partir de vrais titres relevés à la main sur les trois sources — vise 150 entrées, dont au moins 40 pièges. Voici la typologie à couvrir.</p>
+  </div>
+
+  <div class="wide">
+  <table>
+    <caption>Le dernier cas est le plus dangereux du système : il produit un €/Go artificiellement bas, donc une alerte de priorité maximale, sur une annonce sans intérêt. C'est la raison d'être du champ <span class="mono">price_basis</span>.</caption>
+    <thead><tr><th>Titre observé</th><th>Interprétation correcte</th><th>Le piège</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">Lot de 4 barrettes 16Go DDR4 ECC REG 2133</td><td class="mono">4 × 16 Go = 64 Go</td><td>« REG » est le seul indice de RDIMM</td></tr>
+      <tr><td class="mono">64 Go (4x16) DDR4 ECC serveur</td><td class="mono">4 × 16 Go = 64 Go</td><td>Le total est annoncé <em>et</em> décomposé : vérifier la cohérence</td></tr>
+      <tr><td class="mono">8x32GB PC4-2400T 2Rx4 — 256GB TOTAL</td><td class="mono">8 × 32 Go = 256 Go</td><td>Contrôle croisé possible : 8 × 32 = 256 ✓</td></tr>
+      <tr><td class="mono">DDR4 32GB ECC Samsung</td><td class="mono">1 × 32 Go, confiance basse</td><td>Kit ou module ? Défaut = module, mais confiance dégradée</td></tr>
+      <tr><td class="mono">Mémoire serveur PC4-19200 16Go</td><td class="mono">16 Go @ 2400</td><td>Deux conventions coexistent : <span class="mono">PC4-19200</span> = <span class="mono">DDR4-2400</span></td></tr>
+      <tr><td class="mono">RAM DDR4 ECC 2133 MHz — 8 Go</td><td class="mono">8 Go</td><td>Ordre inversé : la fréquence précède la capacité</td></tr>
+      <tr><td class="mono">16 Go DDR4 ECC REG — <b>25 € pièce</b>, j'en ai 8</td><td class="mono">25 €/module, 8 dispos</td><td><b>1,56 €/Go — et non 0,20 €/Go.</b> Confondre les deux crée une fausse alerte urgente</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <h3>Les contrôles de cohérence</h3>
+    <p>Ce sont eux qui transforment un tas d'expressions régulières en parseur fiable. Chacun ajuste la confiance plutôt que de rejeter :</p>
+    <ul>
+      <li>Si un total est annoncé <em>et</em> décomposé, vérifier que <code>module_count × module_capacity == total_gb</code>. Écart → confiance à 0,3, envoi au LLM.</li>
+      <li>Une capacité de module hors de <code>{4, 8, 16, 32, 64, 128}</code> est presque toujours une erreur de lecture — souvent une fréquence prise pour une capacité.</li>
+      <li>Fréquence et code <span class="mono">PC4-*</span> présents tous les deux : ils doivent concorder.</li>
+      <li>Un €/Go résultant inférieur à <code>0,50 €</code> est un signal de bug, pas d'aubaine. Envoie systématiquement au LLM avant d'alerter — c'est le garde-fou qui te protège du cas « pièce ».</li>
+    </ul>
+
+    <h3>Le repli LLM</h3>
+    <p>Sortie structurée avec schéma strict, annonces envoyées par lots d'une vingtaine pour amortir le prompt système, et mise en cache du prompt. Le modèle ne devine pas : on lui demande explicitement de renvoyer <code>null</code> plutôt que d'inventer, et de qualifier la base de prix.</p>
+  </div>
+
+  <pre><span class="c"># extract/llm_fallback.py — endpoint local, partagé avec OpenHands (ADR-7)</span>
+<span class="k">import</span> httpx
+
+ENDPOINT   = <span class="s">"http://localhost:8080/v1/chat/completions"</span>
+CONCURRENCE = <span class="s">1</span>     <span class="c"># jamais plus : OpenHands reste prioritaire (§07)</span>
+
+SYSTEM = <span class="s">"""Tu extrais des specs de mémoire serveur depuis des annonces d'occasion
+(français, allemand, anglais). Règles absolues :
+- Ne devine jamais. Un champ incertain vaut null.
+- price_basis="unit" si le prix affiché est celui d'UN module ("pièce", "l'unité",
+  "chacune", "per stick"). "lot" si c'est le prix de l'ensemble. Sinon "unknown".
+- module_count = nombre de modules VENDUS, pas le nombre disponible en stock.
+- "REG"/"Registered"/"RDIMM" =&gt; rdimm. "LR"/"LRDIMM" =&gt; lrdimm.
+- PC4-17000=2133, PC4-19200=2400, PC4-21300=2666."""</span>
+
+<span class="k">def</span> extract_batch(listings: list[RawListing]) -&gt; list[MemorySpec]:
+    r = httpx.post(ENDPOINT, timeout=<span class="s">45</span>, json={
+        <span class="s">"model"</span>: MODEL,
+        <span class="s">"temperature"</span>: <span class="s">0</span>,
+        <span class="s">"messages"</span>: [{<span class="s">"role"</span>: <span class="s">"system"</span>, <span class="s">"content"</span>: SYSTEM},
+                     {<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: render_batch(listings)}],
+        <span class="c"># décodage contraint : non négociable avec un modèle local</span>
+        <span class="s">"response_format"</span>: {<span class="s">"type"</span>: <span class="s">"json_schema"</span>,
+                            <span class="s">"json_schema"</span>: {<span class="s">"name"</span>: <span class="s">"specs"</span>,
+                                            <span class="s">"strict"</span>: <span class="k">True</span>,
+                                            <span class="s">"schema"</span>: BATCH_SCHEMA}},
+    })
+    <span class="k">return</span> parse_specs(r.json())</pre>
+
+  <div class="col">
+    <div class="callout">
+      <span class="ct">Testabilité</span>
+      <p>Le corpus doré est un simple <code>tests/fixtures/titles.jsonl</code> : une ligne par annonce, avec le <code>MemorySpec</code> attendu. La suite de tests compare champ par champ et affiche un taux de couverture par niveau de cascade. Quand tu ajoutes une règle, tu vois immédiatement combien d'annonces passent du niveau 4 au niveau 2 — c'est-à-dire combien d'euros d'API tu viens d'économiser, et surtout combien de latence tu viens de gagner.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7 LLM LOCAL ============ -->
+<section id="llm">
+  <div class="sec-hd"><span class="sec-n">07</span><h2>Le LLM local, partagé avec OpenHands</h2></div>
+  <div class="col">
+    <p class="lede">Le serveur qui fait tourner ton agent fera aussi l'extraction. La bonne question n'est pas « tiendra-t-il la charge » — il la tiendra sans s'en apercevoir. C'est <strong>« que se passe-t-il quand les deux tombent en même temps »</strong>.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 1000 302" role="img" aria-label="Entonnoir d'extraction : sur 195 nouvelles annonces par jour, 172 survivent au cache de specs, 94 au rejet par mots-clés, 21 au parseur à règles et seulement 8 atteignent le LLM après le préfiltre euro par gigaoctet.">
+      <g font-family="IBM Plex Mono, monospace" fill="currentColor">
+        <line x1="267" y1="34" x2="267" y2="274" stroke="currentColor" stroke-width="1" opacity=".28"/>
+        <g><title>nouvelles annonces / jour — 195 annonces/jour</title>
+          <path d="M268,46 H864 Q868,46 868,50 V66 Q868,70 864,70 H268 Z" class="bar"/>
+          <text x="254" y="62" text-anchor="end" font-size="12.5">nouvelles annonces / jour</text>
+          <text x="879" y="63" font-size="14" font-weight="600">195</text>
+        </g>
+        <g><title>après cache de specs — 172 annonces/jour</title>
+          <path d="M268,94 H793 Q797,94 797,98 V114 Q797,118 793,118 H268 Z" class="bar"/>
+          <text x="254" y="110" text-anchor="end" font-size="12.5">après cache de specs</text>
+          <text x="808" y="111" font-size="14" font-weight="600">172</text>
+          <text x="838" y="111" font-size="10.5" opacity=".55">spec_hash — reposts, doublons</text>
+        </g>
+        <g><title>après rejet mots-clés — 94 annonces/jour</title>
+          <path d="M268,142 H553 Q557,142 557,146 V162 Q557,166 553,166 H268 Z" class="bar"/>
+          <text x="254" y="158" text-anchor="end" font-size="12.5">après rejet mots-clés</text>
+          <text x="568" y="159" font-size="14" font-weight="600">94</text>
+          <text x="598" y="159" font-size="10.5" opacity=".55">DDR3, SODIMM, DDR5, portable</text>
+        </g>
+        <g><title>après parseur à règles — 21 annonces/jour</title>
+          <path d="M268,190 H329 Q333,190 333,194 V210 Q333,214 329,214 H268 Z" class="bar"/>
+          <text x="254" y="206" text-anchor="end" font-size="12.5">après parseur à règles</text>
+          <text x="344" y="207" font-size="14" font-weight="600">21</text>
+          <text x="370" y="207" font-size="10.5" opacity=".55">référence constructeur + regex</text>
+        </g>
+        <g><title>après préfiltre €/Go — 8 annonces/jour</title>
+          <path d="M268,238 H289 Q293,238 293,242 V258 Q293,262 289,262 H268 Z" class="bar-hi"/>
+          <text x="254" y="254" text-anchor="end" font-size="12.5">après préfiltre €/Go</text>
+          <text x="304" y="255" font-size="14" font-weight="600">8</text>
+          <text x="330" y="255" font-size="10.5" opacity=".55">borne optimiste hors seuil</text>
+        </g>
+        <text x="308" y="284" font-size="11.5" class="acct" font-weight="600">→ ~2 appels/jour en lots de 4, soit 11 à 23 s de GPU par jour</text>
+      </g>
+    </svg>
+    <figcaption>Le dédoublonnage par <span class="mono">external_id</span> est en amont de ce graphe : les 195 sont déjà des annonces jamais vues. Chaque étage suivant est gratuit, et les deux derniers font l'essentiel du travail — le parseur à règles résout près de quatre annonces sur cinq, et le préfiltre écarte celles qui ne peuvent pas être une affaire.</figcaption>
+  </figure>
+
+  <div class="wide">
+  <table>
+    <caption>Coût d'un appel selon la taille du lot et le débit du serveur. Les deux profils correspondent à un GPU modeste et à un GPU confortable ; mesure les tiens, l'ordre de grandeur suffit à conclure.</caption>
+    <thead><tr><th>Lot</th><th>Tokens entrée</th><th>Tokens sortie</th><th>@ 900 / 45 tok/s</th><th>@ 2 500 / 90 tok/s</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">1 annonce</td><td class="mono">520</td><td class="mono">110</td><td class="mono">3,0 s</td><td class="mono">1,4 s</td></tr>
+      <tr><td class="mono">4 annonces</td><td class="mono">1 030</td><td class="mono">440</td><td class="mono">10,9 s</td><td class="mono">5,3 s</td></tr>
+      <tr><td><b>Total / jour</b><br><span style="font-size:12.5px;color:var(--ink-3)">≈ 2 appels</span></td><td>—</td><td>—</td><td class="mono"><b>23 s</b><br><span style="font-size:12.5px;color:var(--ink-3)">0,026 % du temps</span></td><td class="mono"><b>11 s</b><br><span style="font-size:12.5px;color:var(--ink-3)">0,013 % du temps</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <div class="callout pcb">
+      <span class="ct">Le vrai risque</span>
+      <p>Vingt secondes de GPU par jour ne sont pas une charge, c'est une rounding error. Le seul risque réel est qu'un de ces deux appels tombe <em>pile</em> pendant une boucle agentique d'OpenHands. Ce n'est pas un problème de dimensionnement, c'est un problème d'ordonnancement — et il se traite comme tel.</p>
+    </div>
+
+    <h3>Le préfiltre : surtout pas sur le prix</h3>
+    <p>Filtrer sur le prix absolu est le réflexe évident, et il est faux : un lot à 1 800 € peut être 512 Go à 3,50 €/Go, c'est-à-dire exactement ce que tu cherches. Un plafond de prix te ferait rater les meilleures affaires, qui sont justement les gros lots. Et tu ne peux pas filtrer sur le €/Go, puisqu'il faut la capacité — qui est précisément ce que le parseur produit.</p>
+    <p>La sortie est une <strong>borne inférieure admissible du €/Go</strong>. On calcule par expression régulière la capacité <em>maximale plausible</em>, donc le €/Go <em>minimal possible</em>.</p>
+  </div>
+
+  <pre><span class="k">def</span> borne_optimiste_gb(texte: str) -&gt; int | None:
+    <span class="s">"""Borne SUPÉRIEURE de la capacité — ne doit jamais sous-estimer."""</span>
+    caps = [int(m) <span class="k">for</span> m <span class="k">in</span> re.findall(<span class="s">r'(\d+)\s*(?:GB|Go)\b'</span>, texte, re.I)]
+    caps = [c <span class="k">for</span> c <span class="k">in</span> caps <span class="k">if</span> c <span class="k">in</span> (<span class="s">4, 8, 16, 32, 64, 128, 256, 512</span>)]
+    <span class="k">if not</span> caps:
+        <span class="k">return None</span>                      <span class="c"># inconnu → on ne préfiltre pas</span>
+    mults = re.findall(<span class="s">r'(\d{1,2})\s*[x*]|\b(\d{1,2})\s*(?:barrettes?|modules?|pcs)'</span>,
+                       texte, re.I)
+    <span class="k">return</span> max(caps) * max([int(g) <span class="k">for</span> m <span class="k">in</span> mults <span class="k">for</span> g <span class="k">in</span> m <span class="k">if</span> g] + [<span class="s">1</span>])
+
+meilleur_cas = prix_total / borne_optimiste_gb(texte)
+<span class="k">if</span> meilleur_cas &gt; plafond_dur:
+    rejeter(<span class="s">"meilleur_cas_hors_seuil"</span>)     <span class="c"># ne peut PAS être une affaire</span></pre>
+
+  <div class="col">
+    <p>La propriété qui compte : la capacité réelle ne peut qu'être <strong>inférieure ou égale</strong> à la borne, donc le €/Go réel ne peut qu'être <strong>supérieur ou égal</strong> au meilleur cas. Si même le meilleur cas dépasse le plafond, l'annonce n'est une affaire sous aucun parsing possible. <strong>Zéro faux négatif par construction.</strong></p>
+    <p>Exemple : <span class="mono">« DDR4 ECC 16GB — 180 € »</span> donne 11,25 €/Go au mieux, donc rejet sans appel. À l'inverse <span class="mono">« 512GB TOTAL (16x32GB) »</span> donne une borne délibérément trop généreuse — le filtre laisse passer, et c'est le comportement voulu : il n'écarte que ce dont il est certain.</p>
+
+    <h3>Faut-il vraiment un deuxième slot&nbsp;?</h3>
+    <p>Sur llama.cpp, <code>--parallel 2</code> <strong>divise <code>-c</code> par deux</strong> : le contexte d'OpenHands est amputé de moitié en permanence. Pour compenser il faut doubler <code>-c</code>, et le cache KV se paie comptant.</p>
+  </div>
+
+  <pre>octets/token = 2 × n_layers × n_kv_heads × head_dim × octets_par_élément
+
+modèle                KB/tok    32k ctx    64k ctx     (fp16)
+~8B  (32L, 8KV)          128      4,0 Go     8,0 Go
+~14B (48L, 8KV)          192      6,0 Go    12,0 Go
+~32B (64L, 8KV)          256      8,0 Go    16,0 Go
+~70B (80L, 8KV)          320     10,0 Go    20,0 Go</pre>
+
+  <div class="col">
+    <div class="callout warn">
+      <span class="ct">Recommandation</span>
+      <p>Payer 4 à 16 Go de VRAM en permanence — ou amputer le contexte d'OpenHands — pour servir vingt secondes de travail par jour est un mauvais échange. <strong>Reste en <code>--parallel 1</code> et fais la queue</strong>, avec les deux voies ci-dessous. Le deuxième slot ne se justifie que si tu constates réellement des collisions, ce que la table de charge rend peu probable.</p>
+    </div>
+  </div>
+
+  <div class="wide">
+  <table>
+    <caption>Si tu tournes déjà sous vLLM, il n'y a rien à faire : le <em>continuous batching</em> gère nativement plusieurs requêtes concurrentes et PagedAttention partage dynamiquement le pool KV, sans contexte fixe par slot.</caption>
+    <thead><tr><th>Serveur</th><th>Modification si tu veux 2 slots</th><th>Le piège</th></tr></thead>
+    <tbody>
+      <tr><td><b>vLLM</b></td><td><span class="pill p-must">aucune</span> Déjà parallèle par conception</td><td>—</td></tr>
+      <tr><td><b>llama.cpp</b></td><td class="mono">--parallel 2 <b>et</b> doubler -c</td><td>Sans doubler <code>-c</code>, chaque slot n'a que la moitié du contexte : les boucles agentiques d'OpenHands cassent</td></tr>
+      <tr><td><b>Ollama</b></td><td class="mono">OLLAMA_NUM_PARALLEL=2</td><td>Multiplie la VRAM du cache KV au lieu de diviser le contexte — même coût, panne différente</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <h3>Deux voies d'appel</h3>
+    <p>Les appels de RamTracker sont différables <em>par conception</em> : une annonce part au LLM précisément parce qu'elle est ambiguë, donc qu'elle n'est pas une évidence. Mais on ne veut pas rater la grosse affaire pour autant, d'où la séparation.</p>
+    <ul>
+      <li><b>Voie urgente</b> — la borne optimiste est très en dessous du plafond, donc l'annonce est potentiellement excellente. Rare : quelques fois par semaine. On tente immédiatement, avec un timeout court, et <b>repli sur l'API distante</b> si le serveur local est occupé. Quelques centimes par mois, et tu ne rates jamais une affaire parce qu'OpenHands compilait.</li>
+      <li><b>Voie différée</b> — tout le reste. File d'attente vidée sur minuterie lente, en sautant le tour si le serveur est occupé. Sur llama.cpp, <code>/health</code> renvoie 503 quand tous les slots sont pris ; sous vLLM, <code>vllm:num_requests_running</code> sur <code>/metrics</code>.</li>
+    </ul>
+
+    <h3>Décodage contraint — non négociable</h3>
+    <p>Avec un modèle local de 7 à 14 milliards de paramètres, espérer du JSON valide en le demandant poliment est une perte de temps. Le décodage contraint par grammaire garantit une sortie conforme au schéma, et c'est ce qui rend un petit modèle parfaitement fiable sur cette tâche précise.</p>
+    <ul>
+      <li><b>llama.cpp</b> — <code>response_format: {type:"json_schema", json_schema:{schema:…}}</code>, ou une grammaire GBNF.</li>
+      <li><b>vLLM</b> — <code>guided_json</code> via <code>extra_body</code>, ou <code>response_format</code> en json_schema.</li>
+      <li><b>Ollama</b> — <code>format</code> avec le schéma JSON.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 8 DÉCISION ============ -->
+<section id="decision">
+  <div class="sec-hd"><span class="sec-n">08</span><h2>Le moteur de seuils</h2></div>
+  <div class="col">
+    <p class="lede">Un seuil unique écrit en dur est le défaut de conception qui tue ce genre de projet en trois mois. Voici la construction en deux barrières.</p>
+
+    <h3>Le calcul de base</h3>
+  </div>
+
+  <pre>total_cost  = prix + port                    <span class="c"># port None ≠ port 0 : si inconnu, estimer par défaut</span>
+total_gb    = module_count × module_capacity_gb
+eur_per_gb  = total_cost / total_gb
+
+<span class="c"># indice de marché : médiane glissante 30 jours des annonces QUALIFIÉES</span>
+<span class="c"># de même compartiment de capacité (8/16/32/64 Go), toutes sources confondues</span>
+market_ref  = p50(eur_per_gb, capacity_bucket, window=30j)
+discount    = 1 − (eur_per_gb / market_ref)</pre>
+
+  <div class="col">
+    <h3>La double barrière</h3>
+    <p>Une alerte n'est émise que si <strong>les deux conditions</strong> sont vraies :</p>
+    <ul>
+      <li><b>Barrière absolue</b> — <code>eur_per_gb &lt; hard_ceiling</code>. Elle te protège d'un marché qui s'effondrerait globalement : une décote de 40 % sur un marché à 12 €/Go reste une mauvaise affaire. Point de départ suggéré : <span class="mono">3,50 €/Go</span>, à ajuster après deux semaines d'observation.</li>
+      <li><b>Barrière relative</b> — <code>discount &gt; min_discount</code>, typiquement 25 %. Elle te protège d'un marché qui monterait : sans elle, ton plafond dur finirait par ne plus jamais se déclencher, en silence.</li>
+    </ul>
+
+    <div class="callout warn">
+      <span class="ct">Amorçage à froid</span>
+      <p>Pendant les quatorze premiers jours, <code>market_ref</code> repose sur trop peu d'observations pour être fiable. Configure explicitement un <b>mode observation</b> : le système collecte, parse et score, mais n'émet que sur la barrière absolue, et t'envoie un récapitulatif quotidien de ce qu'il <em>aurait</em> notifié. C'est aussi ta phase de calibrage : c'est en lisant ces récapitulatifs que tu fixes tes vrais seuils, plutôt qu'en les devinant maintenant.</p>
+    </div>
+
+    <p>Deux garde-fous complémentaires, à ne pas oublier :</p>
+    <ul>
+      <li><b>Plancher de plausibilité.</b> En dessous de <code>0,50 €/Go</code>, on ne notifie pas : on renvoie au LLM. À ce niveau de prix, il s'agit presque toujours d'une erreur de parsing sur la base de prix, pas d'une aubaine.</li>
+      <li><b>Volume minimal.</b> Un module isolé de 8 Go à 2 €/Go est une bonne affaire arithmétique et un mauvais achat pratique : il occupe un slot pour peu de capacité. Pondère par la capacité totale de l'annonce, ou fixe un plancher à <code>total_gb ≥ 32</code>.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 8 ENCHÈRES ============ -->
+<section id="encheres">
+  <div class="sec-hd"><span class="sec-n">09</span><h2>Achat immédiat contre enchère</h2></div>
+  <div class="col">
+    <p class="lede">Tu as demandé une notification agressive pour l'achat et discrète pour l'enchère. La vraie difficulté n'est pas le niveau sonore : c'est que <strong>le prix d'une enchère à J−6 ne veut rien dire</strong>.</p>
+    <p>Une barrette à 5 € six jours avant la clôture n'est pas une affaire à 0,15 €/Go — c'est une enchère qui n'a pas commencé. Notifier là-dessus, c'est notifier sur du bruit, et te dresser à ignorer l'application. Le prix d'une enchère ne devient une information qu'en fin de course.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 1040 300" role="img" aria-label="Arbre de décision : une annonce en achat immédiat sous le seuil déclenche une notification immédiate de priorité maximale ; une enchère est mise en liste de veille tant qu'il reste plus de quatre-vingt-dix minutes, puis réévaluée au prix courant majoré d'un incrément pour une notification silencieuse.">
+      <defs>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-family="IBM Plex Mono, monospace" font-size="12">
+        <rect x="15" y="118" width="140" height="52" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <text x="85" y="140" text-anchor="middle" font-size="12.5" font-weight="600">annonce</text>
+        <text x="85" y="156" text-anchor="middle" font-size="10.5" opacity=".62">qualifiée</text>
+
+        <path d="M300 144 L 245 112 L 190 144 L 245 176 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="245" y="141" text-anchor="middle" font-size="10.5">type de</text>
+        <text x="245" y="154" text-anchor="middle" font-size="10.5">vente ?</text>
+        <line x1="155" y1="144" x2="186" y2="144" stroke="currentColor" stroke-width="1.4" marker-end="url(#a2)"/>
+
+        <!-- achat immédiat -->
+        <path d="M245 112 L 245 62 L 355 62" stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#a2)"/>
+        <text x="253" y="80" font-size="10.5">achat immédiat</text>
+        <rect x="360" y="36" width="180" height="52" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <text x="450" y="58" text-anchor="middle" font-size="12">double barrière</text>
+        <text x="450" y="74" text-anchor="middle" font-size="10.5" opacity=".62">§08</text>
+        <line x1="540" y1="62" x2="614" y2="62" stroke="currentColor" stroke-width="1.4" marker-end="url(#a2)"/>
+        <text x="577" y="53" text-anchor="middle" font-size="10.5" class="acct">oui</text>
+        <rect x="620" y="36" width="230" height="52" rx="3" class="accf"/>
+        <text x="735" y="57" text-anchor="middle" font-size="12.5" font-weight="600" class="accf-t">notification immédiate</text>
+        <text x="735" y="74" text-anchor="middle" font-size="10.5" class="accf-t" opacity=".85">priorité 5 · son · bouton Ouvrir</text>
+
+        <!-- enchère -->
+        <path d="M245 176 L 245 226 L 355 226" stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#a2)"/>
+        <text x="253" y="212" font-size="10.5">enchère</text>
+        <path d="M470 226 L 415 194 L 360 226 L 415 258 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="415" y="223" text-anchor="middle" font-size="10.5">reste</text>
+        <text x="415" y="236" text-anchor="middle" font-size="10.5">&lt; 90 min ?</text>
+
+        <path d="M415 194 L 415 155 L 560 155" stroke="currentColor" stroke-width="1.3" fill="none" stroke-dasharray="4 3" marker-end="url(#a2)"/>
+        <text x="424" y="172" font-size="10.5" opacity=".7">non</text>
+        <rect x="565" y="130" width="200" height="48" rx="3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" opacity=".7"/>
+        <text x="665" y="150" text-anchor="middle" font-size="11.5" opacity=".8">liste de veille</text>
+        <text x="665" y="165" text-anchor="middle" font-size="10" opacity=".6">aucune notification</text>
+        <path d="M665 178 L 665 200 L 470 200 L 470 214" stroke="currentColor" stroke-width="1.2" fill="none" stroke-dasharray="4 3" marker-end="url(#a2)"/>
+        <text x="570" y="196" text-anchor="middle" font-size="10" opacity=".6">réévaluée à chaque cycle</text>
+
+        <line x1="470" y1="258" x2="470" y2="266" stroke="currentColor" stroke-width="0"/>
+        <path d="M470 226 L 545 226" stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#a2)"/>
+        <text x="507" y="217" text-anchor="middle" font-size="10.5">oui</text>
+        <rect x="550" y="200" width="215" height="52" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <text x="657" y="221" text-anchor="middle" font-size="11.5">enchère + 1 incrément</text>
+        <text x="657" y="237" text-anchor="middle" font-size="10.5" opacity=".62">sous les deux barrières ?</text>
+        <line x1="765" y1="226" x2="819" y2="226" stroke="currentColor" stroke-width="1.4" marker-end="url(#a2)"/>
+        <rect x="825" y="200" width="200" height="52" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <text x="925" y="221" text-anchor="middle" font-size="12.5" font-weight="600">notification calme</text>
+        <text x="925" y="237" text-anchor="middle" font-size="10.5" opacity=".7">priorité 2 · muette · max_bid</text>
+      </g>
+    </svg>
+    <figcaption>La porte des 90 minutes est ce qui sépare une information d'un bruit. Tant qu'elle n'est pas franchie, l'enchère reste en veille silencieuse et sa cote est réévaluée à chaque cycle ; le seuil est évalué sur l'enchère courante <em>majorée d'un incrément</em>, puisque tu ne pourras pas l'emporter au prix affiché.</figcaption>
+  </figure>
+
+  <div class="col">
+    <p>La notification d'enchère doit porter une information que celle d'achat immédiat n'a pas besoin de porter : <strong>ton plafond</strong>. Le moteur inverse la formule du §08 pour le calculer.</p>
+  </div>
+
+  <pre>max_bid = (hard_ceiling × total_gb) − port_estimé
+<span class="c"># exemple : 4 × 16 Go @ 2,50 €/Go, port 9 € → (2,50 × 64) − 9 = 151 €</span>
+<span class="c"># la notification affiche « ne dépasse pas 151 € »</span></pre>
+
+  <div class="col">
+    <p>Deux détails d'exploitation. D'abord, une enchère qui entre dans la fenêtre des 90 minutes ne doit être notifiée <strong>qu'une fois</strong> — sinon tu reçois une alerte toutes les dix minutes pendant une heure et demie. Ensuite, une enchère en veille dont le prix <em>monte</em> au-dessus du seuil doit sortir de la liste silencieusement : ne notifie jamais une non-affaire.</p>
+  </div>
+</section>
+
+<!-- ============ 9 NOTIFICATIONS ============ -->
+<section id="notif">
+  <div class="sec-hd"><span class="sec-n">10</span><h2>Les notifications</h2></div>
+  <div class="col">
+    <p class="lede">Recommandation : <strong>ntfy</strong>. Auto-hébergeable sur le même serveur, application Android et iOS, cinq niveaux de priorité, boutons d'action, et une publication qui tient en une requête HTTP sans SDK.</p>
+    <p>Pushover est l'alternative sérieuse si tu veux la priorité « urgence » avec relance jusqu'à accusé de réception — utile si tu chasses de gros lots. Telegram convient si tu veux répondre à la notification pour piloter le système. Dans les trois cas, la publication passe par la même interface <code>Notifier</code> : le choix reste réversible.</p>
+  </div>
+
+  <div class="notifs">
+    <div class="notif hi">
+      <div class="n-app"><span>RamTracker</span><span>priorité 5</span></div>
+      <div class="n-title">2,10 €/Go — 34 % sous le marché</div>
+      <div class="n-body">4 × 32 Go RDIMM 2400 · 128 Go<br>269 € + 9 € port · leboncoin · Lyon<br>réf. M393A4K40BB1-CRC</div>
+      <div class="n-act"><span class="n-btn">Ouvrir l'annonce</span><span class="n-btn">Ignorer 24 h</span></div>
+    </div>
+    <div class="notif lo">
+      <div class="n-app"><span>RamTracker</span><span>priorité 2 · muette</span></div>
+      <div class="n-title">Enchère — fin dans 74 min</div>
+      <div class="n-body">8 × 16 Go RDIMM 2133 · 128 Go<br>cote 178 € → 1,46 €/Go<br><b>ne dépasse pas 311 €</b></div>
+      <div class="n-act"><span class="n-btn">Voir</span></div>
+    </div>
+  </div>
+
+  <pre><span class="c"># notify/ntfy.py — achat immédiat</span>
+POST https://ntfy.sh/<span class="s">&lt;topic-long-et-secret&gt;</span>
+  X-Title:    2,10 €/Go — 34 % sous le marché
+  X-Priority: <span class="s">5</span>                      <span class="c"># enchère : 2 (muette)</span>
+  X-Tags:     heavy_dollar_sign        <span class="c"># enchère : hourglass_flowing_sand</span>
+  X-Click:    &lt;url de l'annonce&gt;
+  X-Actions:  view, Ouvrir l'annonce, &lt;url&gt;; http, Ignorer 24h, &lt;webhook&gt;/mute/&lt;id&gt;
+  Body:       4 × 32 Go RDIMM 2400 · 128 Go / 269 € + 9 € port / Lyon</pre>
+
+  <div class="col">
+    <div class="callout warn">
+      <span class="ct">L'anti-spam n'est pas optionnel</span>
+      <p>Un agent de veille qui notifie trop est un agent de veille qu'on désactive. Quatre règles, à implémenter dès le premier jour :</p>
+      <ul style="margin-bottom:0">
+        <li><b>Une alerte par empreinte.</b> L'empreinte est <code>(vendeur, capacité, quantité, prix arrondi)</code> — elle survit à une republication.</li>
+        <li><b>Re-alerte uniquement à la baisse</b> de plus de 10 % du prix.</li>
+        <li><b>Plafond quotidien</b> de six notifications urgentes. Au-delà, bascule en récapitulatif : si six affaires se déclenchent le même jour, c'est ton seuil qui est mal réglé, pas le marché qui s'écroule.</li>
+        <li><b>Silence nocturne.</b> Entre 23 h et 7 h, la priorité 5 est ramenée à 3. Une barrette n'est pas une astreinte.</li>
+      </ul>
+    </div>
+    <p>Le bouton « Ignorer 24 h » de la maquette suppose un petit point d'entrée HTTP côté serveur. C'est trente lignes de FastAPI, et c'est le socle de la boucle de rétroaction de la phase 7 : chaque fois que tu ignores une alerte, tu apprends au système ce qui ne t'intéresse pas.</p>
+  </div>
+</section>
+
+<!-- ============ 10 PLAN ============ -->
+<section id="plan">
+  <div class="sec-hd"><span class="sec-n">11</span><h2>Le plan et ses dépendances</h2></div>
+  <div class="col">
+    <p class="lede">Huit phases. La stratégie est celle de la <strong>tranche verticale</strong> : faire arriver une vraie notification sur ton téléphone le plus tôt possible, avec une seule source, puis élargir sans jamais rien casser.</p>
+    <p>Ce qui est en pointillé sur le schéma peut être supprimé du premier jet sans empêcher le système de fonctionner. C'est délibéré : ce sont les trois postes qui coûtent le plus cher en temps et qui apportent le moins au premier jour.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 1120 470" role="img" aria-label="Graphe de dépendances des huit phases. La recon alimente le socle et directement l'extraction via le corpus doré. Le socle se scinde en extraction et collecteurs, qui convergent tous deux vers le moteur de décision, puis la notification et l'exploitation. Le repli LLM, Reddit, Leboncoin et la boucle de rétroaction sont différés.">
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" class="accf"/>
+        </marker>
+        <marker id="a3m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="currentColor" opacity=".55"/>
+        </marker>
+      </defs>
+      <g font-family="IBM Plex Mono, monospace" font-size="11.5">
+
+        <!-- P0 -->
+        <rect x="20" y="180" width="140" height="82" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="32" y="200" font-size="11" class="acct" font-weight="600">P0</text>
+        <text x="32" y="216" font-size="13" font-weight="600" font-family="Archivo, sans-serif">Recon</text>
+        <text x="32" y="233" font-size="10" opacity=".62">compat · corpus</text>
+        <text x="32" y="247" font-size="10" opacity=".62">spikes · clés API</text>
+
+        <!-- P1 -->
+        <rect x="205" y="180" width="140" height="82" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="217" y="200" font-size="11" class="acct" font-weight="600">P1</text>
+        <text x="217" y="216" font-size="13" font-weight="600" font-family="Archivo, sans-serif">Socle</text>
+        <text x="217" y="233" font-size="10" opacity=".62">modèle · SQLite</text>
+        <text x="217" y="247" font-size="10" opacity=".62">config · tests</text>
+
+        <!-- P2 -->
+        <rect x="390" y="62" width="140" height="90" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="402" y="82" font-size="11" class="acct" font-weight="600">P2</text>
+        <text x="402" y="98" font-size="13" font-weight="600" font-family="Archivo, sans-serif">Extraction</text>
+        <text x="402" y="115" font-size="10" opacity=".62">réf. · regex</text>
+        <text x="402" y="129" font-size="10" opacity=".62">cohérence</text>
+        <rect x="400" y="134" width="86" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 2" opacity=".55"/>
+        <text x="405" y="144" font-size="9" opacity=".6">repli LLM</text>
+
+        <!-- P3 -->
+        <rect x="390" y="290" width="140" height="90" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="402" y="310" font-size="11" class="acct" font-weight="600">P3</text>
+        <text x="402" y="326" font-size="13" font-weight="600" font-family="Archivo, sans-serif">Collecteurs</text>
+        <text x="402" y="343" font-size="10" opacity=".62">interface · eBay</text>
+        <rect x="400" y="350" width="118" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 2" opacity=".55"/>
+        <text x="405" y="360" font-size="9" opacity=".6">Reddit · Leboncoin</text>
+
+        <!-- P4 -->
+        <rect x="575" y="180" width="140" height="82" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="587" y="200" font-size="11" class="acct" font-weight="600">P4</text>
+        <text x="587" y="216" font-size="13" font-weight="600" font-family="Archivo, sans-serif">Décision</text>
+        <text x="587" y="233" font-size="10" opacity=".62">dédup · indice</text>
+        <text x="587" y="247" font-size="10" opacity=".62">seuils · enchères</text>
+
+        <!-- P5 -->
+        <rect x="760" y="180" width="140" height="82" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="772" y="200" font-size="11" class="acct" font-weight="600">P5</text>
+        <text x="772" y="216" font-size="13" font-weight="600" font-family="Archivo, sans-serif">Notification</text>
+        <text x="772" y="233" font-size="10" opacity=".62">ntfy · gabarits</text>
+        <text x="772" y="247" font-size="10" opacity=".62">anti-spam</text>
+
+        <!-- P6 -->
+        <rect x="945" y="180" width="140" height="82" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="957" y="200" font-size="11" class="acct" font-weight="600">P6</text>
+        <text x="957" y="216" font-size="13" font-weight="600" font-family="Archivo, sans-serif">Exploitation</text>
+        <text x="957" y="233" font-size="10" opacity=".62">cadence · docker</text>
+        <text x="957" y="247" font-size="10" opacity=".62">watchdog</text>
+
+        <!-- P7 différé -->
+        <rect x="945" y="316" width="140" height="66" rx="3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" opacity=".6"/>
+        <text x="957" y="336" font-size="11" opacity=".6" font-weight="600">P7</text>
+        <text x="957" y="352" font-size="13" font-weight="600" font-family="Archivo, sans-serif" opacity=".7">Boucle</text>
+        <text x="957" y="369" font-size="10" opacity=".5">feedback · rapport</text>
+
+        <!-- arêtes -->
+        <line x1="160" y1="221" x2="199" y2="221" class="acc" stroke-width="1.5" marker-end="url(#a3)"/>
+        <text x="180" y="212" text-anchor="middle" font-size="9.5" class="acct">compat.yaml</text>
+
+        <path d="M345 205 C368 205 368 107 384 107" class="acc" stroke-width="1.5" fill="none" marker-end="url(#a3)"/>
+        <path d="M345 237 C368 237 368 335 384 335" class="acc" stroke-width="1.5" fill="none" marker-end="url(#a3)"/>
+        <text x="356" y="160" font-size="9.5" class="acct">modèle</text>
+        <text x="352" y="292" font-size="9.5" class="acct">schéma</text>
+
+        <path d="M90 178 C90 66 190 26 384 74" class="acc" stroke-width="1.5" fill="none" marker-end="url(#a3)"/>
+        <text x="205" y="40" font-size="9.5" class="acct">corpus doré — 150 annonces étiquetées</text>
+
+        <path d="M534 107 C556 107 556 205 569 205" class="acc" stroke-width="1.5" fill="none" marker-end="url(#a3)"/>
+        <path d="M534 335 C556 335 556 237 569 237" class="acc" stroke-width="1.5" fill="none" marker-end="url(#a3)"/>
+        <text x="545" y="160" font-size="9.5" class="acct">specs</text>
+        <text x="540" y="292" font-size="9.5" class="acct">annonces</text>
+
+        <line x1="715" y1="221" x2="754" y2="221" class="acc" stroke-width="1.5" marker-end="url(#a3)"/>
+        <text x="735" y="212" text-anchor="middle" font-size="9.5" class="acct">affaires</text>
+        <line x1="900" y1="221" x2="939" y2="221" class="acc" stroke-width="1.5" marker-end="url(#a3)"/>
+
+        <path d="M460 380 L 460 425 L 1015 425 L 1015 268" class="acc" stroke-width="1.3" fill="none" stroke-dasharray="5 3" marker-end="url(#a3)"/>
+        <text x="737" y="440" text-anchor="middle" font-size="9.5" class="acct">cadence par source · repli anti-bot</text>
+
+        <path d="M1015 262 L 1015 310" stroke="currentColor" stroke-width="1.2" fill="none" stroke-dasharray="4 3" opacity=".55" marker-end="url(#a3m)"/>
+
+        <!-- légende -->
+        <line x1="20" y1="448" x2="48" y2="448" class="acc" stroke-width="1.5"/>
+        <text x="54" y="452" font-size="10" opacity=".75">dépendance bloquante</text>
+        <line x1="215" y1="448" x2="243" y2="448" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" opacity=".55"/>
+        <text x="249" y="452" font-size="10" opacity=".6">différé — supprimable du premier jet</text>
+      </g>
+    </svg>
+    <figcaption>Le chemin critique jusqu'à la première notification réelle est <span class="mono">P0 → P1 → P2 → P4 → P5</span>, avec le seul collecteur eBay en P3. Le corpus doré est la seule dépendance qui court-circuite le socle : il alimente directement l'extraction, ce qui te permet d'écrire et de tester le parseur avant même qu'une ligne de collecte existe.</figcaption>
+  </figure>
+
+  <div class="phases">
+
+    <div class="ph ph-crit">
+      <div class="ph-hd"><span class="ph-n">P0</span><span class="ph-t">Cadrage &amp; reconnaissance</span></div>
+      <div class="ph-meta"><span>≈ 2 soirées</span><span>dépend de : rien</span><span>bloque : tout</span></div>
+      <div class="ph-body"><ol>
+        <li><span class="ph-id">0.1</span><span>Rédiger <code>compat.yaml</code> : la matrice du §02, plus la table de décodage des références constructeur. Vérifier contre la QVL Supermicro officielle.</span></li>
+        <li><span class="ph-id">0.2</span><span><b>Le corpus doré.</b> 150 titres réels relevés à la main sur les trois sources, étiquetés avec le <code>MemorySpec</code> attendu, dont 40 pièges du §06. Ingrat, incontournable.</span></li>
+        <li><span class="ph-id">0.3</span><span>Trois spikes jetables, en parallèle : un appel eBay authentifié qui renvoie du JSON ; une page Leboncoin dont on extrait <code>__NEXT_DATA__</code> ; un appel Reddit OAuth. Objectif : lever le risque, pas produire du code.</span></li>
+        <li><span class="ph-id">0.4</span><span>Comptes et clés : eBay Developers, application Reddit « script », sujet ntfy, clé API Anthropic.</span></li>
+      </ol></div>
+      <div class="dod"><b>Fait quand</b>Les trois spikes ont renvoyé des données réelles et <code>titles.jsonl</code> contient 150 lignes étiquetées.</div>
+    </div>
+
+    <div class="ph ph-crit">
+      <div class="ph-hd"><span class="ph-n">P1</span><span class="ph-t">Socle</span></div>
+      <div class="ph-meta"><span>≈ 1 soirée</span><span>dépend de : P0.3, P0.4</span><span>bloque : P2, P3</span></div>
+      <div class="ph-body"><ol>
+        <li><span class="ph-id">1.1</span><span>Squelette <code>uv</code>, configuration par <code>pydantic-settings</code>, secrets en <code>.env</code>, journalisation structurée.</span></li>
+        <li><span class="ph-id">1.2</span><span>Les trois types canoniques du §04. Aucune logique — juste les données.</span></li>
+        <li><span class="ph-id">1.3</span><span>Schéma SQLite en WAL : <code>listings</code>, <code>specs</code>, <code>alerts</code>, <code>market_stats</code>, <code>source_runs</code>. Migrations en SQL numéroté, pas d'ORM lourd.</span></li>
+        <li><span class="ph-id">1.4</span><span>Harnais <code>pytest</code> qui charge le corpus doré. Il doit échouer bruyamment : c'est normal, le parseur n'existe pas.</span></li>
+      </ol></div>
+      <div class="dod"><b>Fait quand</b><code>pytest</code> tourne, lit les 150 fixtures, et échoue sur les 150.</div>
+    </div>
+
+    <div class="ph ph-crit">
+      <div class="ph-hd"><span class="ph-n">P2</span><span class="ph-t">Extraction</span></div>
+      <div class="ph-meta"><span>≈ 2–3 soirées</span><span>dépend de : P0.1, P0.2, P1.2</span><span>bloque : P4</span></div>
+      <div class="ph-body"><ol>
+        <li><span class="ph-id">2.1</span><span>Résolution par référence constructeur. Le meilleur rapport effort/résultat de tout le projet.</span></li>
+        <li><span class="ph-id">2.2</span><span>Grammaire d'expressions régulières : capacité, multiplicateur, type, fréquence, rangs, base de prix.</span></li>
+        <li><span class="ph-id">2.3</span><span>Score de confiance et contrôles de cohérence croisés du §06.</span></li>
+        <li><span class="ph-id">2.4</span><span>Filtre de qualification : applique <code>compat.yaml</code>, avec un motif de rejet tracé pour chaque annonce écartée.</span></li>
+        <li><span class="ph-id">2.5</span><span><span class="pill p-def">différé</span> Repli LLM à sortie structurée. Tant qu'il n'existe pas, les annonces peu sûres vont en quarantaine.</span></li>
+      </ol></div>
+      <div class="dod"><b>Fait quand</b>Le taux de réussite sur le corpus doré dépasse 85 % sans appel réseau, et aucun piège « prix pièce » n'est mal interprété.</div>
+    </div>
+
+    <div class="ph ph-crit">
+      <div class="ph-hd"><span class="ph-n">P3</span><span class="ph-t">Collecteurs</span></div>
+      <div class="ph-meta"><span>1 soirée + 3</span><span>dépend de : P1.2, P1.3</span><span>bloque : P4</span></div>
+      <div class="ph-body"><ol>
+        <li><span class="ph-id">3.1</span><span>Interface <code>Collector</code> : une méthode <code>fetch_recent() → list[RawListing]</code>. Rien d'autre.</span></li>
+        <li><span class="ph-id">3.2</span><span><b>eBay.</b> Token en cache, pagination, deux requêtes (achat / enchère), <code>ENDUSERCTX</code> pour le port. C'est la source qui valide la chaîne.</span></li>
+        <li><span class="ph-id">3.3</span><span><span class="pill p-def">différé</span> Reddit — parseur de titres <code>[H]/[W]</code>, filtre pays.</span></li>
+        <li><span class="ph-id">3.4</span><span><span class="pill p-def">différé</span> Leboncoin — <code>curl_cffi</code>, <code>__NEXT_DATA__</code>, détection de défi, repli exponentiel. Le poste le plus coûteux, et le plus rentable une fois posé.</span></li>
+      </ol></div>
+      <div class="dod"><b>Fait quand</b>Une exécution unique d'eBay écrit des <code>RawListing</code> valides en base, avec le port renseigné.</div>
+    </div>
+
+    <div class="ph ph-crit">
+      <div class="ph-hd"><span class="ph-n">P4</span><span class="ph-t">Décision</span></div>
+      <div class="ph-meta"><span>≈ 1–2 soirées</span><span>dépend de : P2, P3.2</span><span>bloque : P5</span></div>
+      <div class="ph-body"><ol>
+        <li><span class="ph-id">4.1</span><span>Dédoublonnage et état : empreinte, table des annonces déjà vues, détection de baisse de prix.</span></li>
+        <li><span class="ph-id">4.2</span><span>Indice de marché : médiane glissante 30 jours par compartiment de capacité, recalculée à chaque cycle.</span></li>
+        <li><span class="ph-id">4.3</span><span>Double barrière et garde-fous du §08, avec le mode observation des 14 premiers jours.</span></li>
+        <li><span class="ph-id">4.4</span><span>Politique d'enchères du §09 : porte des 90 minutes, calcul du <code>max_bid</code>, notification unique.</span></li>
+      </ol></div>
+      <div class="dod"><b>Fait quand</b>Rejouer l'historique archivé produit une liste d'affaires que tu juges pertinente à la lecture.</div>
+    </div>
+
+    <div class="ph ph-crit">
+      <div class="ph-hd"><span class="ph-n">P5</span><span class="ph-t">Notification</span></div>
+      <div class="ph-meta"><span>≈ 1 soirée</span><span>dépend de : P4</span><span>bloque : P6</span></div>
+      <div class="ph-body"><ol>
+        <li><span class="ph-id">5.1</span><span>Interface <code>Notifier</code> puis implémentation ntfy — deux priorités, boutons d'action.</span></li>
+        <li><span class="ph-id">5.2</span><span>Gabarits achat et enchère : €/Go, décote, capacité, source, ville, <code>max_bid</code>.</span></li>
+        <li><span class="ph-id">5.3</span><span>Anti-spam : cooldown, plafond quotidien, silence nocturne, re-alerte à la baisse seulement.</span></li>
+      </ol></div>
+      <div class="dod"><b>Fait quand</b><span style="color:var(--pcb);font-weight:600">Ton téléphone sonne pour une vraie annonce eBay.</span> Le système existe.</div>
+    </div>
+
+    <div class="ph ph-crit">
+      <div class="ph-hd"><span class="ph-n">P6</span><span class="ph-t">Exploitation</span></div>
+      <div class="ph-meta"><span>≈ 1 soirée</span><span>dépend de : P3, P5</span><span>bloque : rien</span></div>
+      <div class="ph-body"><ol>
+        <li><span class="ph-id">6.1</span><span>Ordonnanceur avec cadence par source et gigue aléatoire (§12).</span></li>
+        <li><span class="ph-id">6.2</span><span><code>docker compose</code> ou unité <code>systemd</code> + minuterie, sur le serveur lui-même.</span></li>
+        <li><span class="ph-id">6.3</span><span><b>Chien de garde inversé</b> — la fonctionnalité qu'on oublie et qui rend le reste inutile (§12).</span></li>
+        <li><span class="ph-id">6.4</span><span>Disjoncteur par source, repli exponentiel, sauvegarde SQLite quotidienne.</span></li>
+      </ol></div>
+      <div class="dod"><b>Fait quand</b>Le système tourne trois jours d'affilée sans intervention, et t'a prévenu la fois où une source est tombée.</div>
+    </div>
+
+    <div class="ph">
+      <div class="ph-hd"><span class="ph-n">P7</span><span class="ph-t">Boucle d'amélioration <span class="pill p-def">différé</span></span></div>
+      <div class="ph-meta"><span>≈ 1–2 soirées</span><span>dépend de : P6</span><span>bloque : rien</span></div>
+      <div class="ph-body"><ol>
+        <li><span class="ph-id">7.1</span><span>Point d'entrée HTTP pour les boutons d'action ; chaque « Ignorer » devient une étiquette négative.</span></li>
+        <li><span class="ph-id">7.2</span><span>Rapport hebdomadaire : évolution du €/Go médian par capacité, taux de fausses alertes, contenu de la quarantaine.</span></li>
+        <li><span class="ph-id">7.3</span><span>Réinjection de la quarantaine dans le corpus doré, puis rejeu du parseur sur l'historique archivé (ADR-6).</span></li>
+      </ol></div>
+      <div class="dod"><b>Fait quand</b>Le taux de fausses alertes est mesuré, donc améliorable.</div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="callout pcb">
+      <span class="ct">Le jalon qui compte</span>
+      <p>Vise <strong>P5 en huit à neuf soirées</strong>, avec eBay comme unique source et sans repli LLM. À ce stade, tu as un système qui te réveille pour de vraies affaires. Tout ce qui suit — Leboncoin, le LLM, la boucle de rétroaction — améliore un système qui marche déjà, ce qui est infiniment plus confortable que de déboguer un système qui n'a jamais rien produit.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 11 OPS ============ -->
+<section id="ops">
+  <div class="sec-hd"><span class="sec-n">12</span><h2>Exploitation — et le mode de panne qu'il faut anticiper</h2></div>
+  <div class="col">
+    <p class="lede">Un scraper ne tombe presque jamais bruyamment. Il tombe en silence — et le silence ressemble exactement à « le marché est calme ».</p>
+    <div class="callout warn">
+      <span class="ct">Le chien de garde inversé</span>
+      <p>Leboncoin change son schéma JSON, eBay renomme un champ, ton token expire, DataDome te bloque : dans tous les cas le résultat est le même. Zéro annonce, zéro alerte, aucune erreur. Tu penses que rien d'intéressant n'est passé. Ça peut durer des mois.</p>
+      <p><b>La parade</b> : à chaque exécution, enregistrer dans <code>source_runs</code> le nombre d'annonces brutes, le nombre de qualifiées et la durée. Si une source qui remontait habituellement des annonces en remonte <b>zéro sur trois cycles consécutifs</b>, envoyer une notification technique de priorité moyenne : « leboncoin — 0 annonce depuis 3 cycles ». C'est l'alerte la plus importante du système, parce que c'est la seule qui te dise que le système ment.</p>
+    </div>
+  </div>
+
+  <div class="wide">
+  <table>
+    <caption>Cadence par source. La gigue n'est pas de la superstition : un scan qui tombe exactement à la minute ronde, quatorze fois par jour, est un motif que n'importe quel système de détection remarque.</caption>
+    <thead><tr><th>Source</th><th>Intervalle</th><th>Gigue</th><th>Requêtes/cycle</th><th>Requêtes/jour</th><th>Quota</th></tr></thead>
+    <tbody>
+      <tr><td>eBay</td><td class="mono">10 min</td><td class="mono">± 2 min</td><td class="mono">4</td><td class="mono">576</td><td class="mono">11 % de 5 000</td></tr>
+      <tr><td>Reddit</td><td class="mono">15 min</td><td class="mono">± 3 min</td><td class="mono">1</td><td class="mono">96</td><td class="mono">négligeable</td></tr>
+      <tr><td>Leboncoin</td><td class="mono">75 min</td><td class="mono">± 20 min</td><td class="mono">1–2</td><td class="mono">≈ 24</td><td>—</td></tr>
+      <tr><td>File LLM — voie différée</td><td class="mono">30 min</td><td>—</td><td class="mono">≤ 1</td><td class="mono">≈ 2</td><td>concurrence 1, tour sauté si le serveur est occupé</td></tr>
+      <tr><td>Recalcul de l'indice</td><td class="mono">1 h</td><td>—</td><td>local</td><td class="mono">24</td><td>—</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <h3>Disjoncteur et repli</h3>
+    <ul>
+      <li>Détection de défi anti-bot → repli exponentiel <code>15 min → 1 h → 4 h → 12 h</code>, plafonné, avec gigue.</li>
+      <li>Trois échecs consécutifs → la source est ouverte au disjoncteur, notification technique, et <strong>on n'y retouche plus</strong> jusqu'à la prochaine fenêtre. Une boucle de retry serrée transforme un blocage temporaire en blocage durable.</li>
+      <li>Le disjoncteur est <em>par source</em> : Leboncoin bloqué ne doit jamais empêcher eBay de tourner.</li>
+    </ul>
+
+    <h3>Déploiement</h3>
+    <p>Le plus simple qui marche : une unité <code>systemd</code> avec minuterie sur le serveur lui-même, ou un <code>docker compose</code> à deux services — l'application et, en option, un ntfy auto-hébergé. Une sauvegarde quotidienne de <code>ramtracker.db</code> par <code>sqlite3 .backup</code>, conservée sept jours. Il n'y a rien de plus à exploiter, et c'est voulu (ADR-5).</p>
+  </div>
+</section>
+
+<!-- ============ 12 LÉGAL ============ -->
+<section id="legal">
+  <div class="sec-hd"><span class="sec-n">13</span><h2>Ce qu'il faut savoir avant de lancer</h2></div>
+  <div class="col">
+    <p>Trois régimes différents cohabitent dans ce système, et il vaut mieux les distinguer clairement.</p>
+    <ul>
+      <li><b>eBay et Reddit</b> — usage explicitement prévu. Tu passes par des API publiques, avec des identifiants à ton nom, dans les quotas annoncés. Rien à signaler.</li>
+      <li><b>Leboncoin</b> — les conditions générales interdisent l'extraction automatisée de contenu. Ton usage est strictement personnel, non commercial, à raison d'environ vingt-quatre requêtes par jour sur des pages publiques, sans compte, sans revente ni rediffusion des données. Le risque concret est le blocage de ton adresse IP, pas davantage. Mais c'est une décision qui t'appartient, et le blueprint est conçu pour que le système reste utile sans cette source.</li>
+      <li><b>Données personnelles</b> — les annonces contiennent des pseudonymes de vendeurs et des villes. Ne stocke que ce qui sert au dédoublonnage, purge automatiquement au-delà de quatre-vingt-dix jours, et ne republie rien.</li>
+    </ul>
+    <p>Deux principes de conception qui découlent de tout ça : ne jamais contourner d'authentification, et écrire un collecteur qui se comporte comme un utilisateur patient plutôt que comme un outil qui cherche à « passer ».</p>
+  </div>
+</section>
+
+<!-- ============ 13 BUDGET ============ -->
+<section id="budget">
+  <div class="sec-hd"><span class="sec-n">14</span><h2>Budget</h2></div>
+
+  <div class="wide">
+  <table>
+    <caption>Le poste LLM est passé à zéro depuis l'ADR-7 : le matériel est déjà en place et déjà payé, et l'entonnoir du §07 ramène la sollicitation à une vingtaine de secondes de GPU par jour. Seule la voie urgente, qui se replie sur l'API distante quand le serveur local est occupé, génère une dépense — de l'ordre de quelques centimes par mois.</caption>
+    <thead><tr><th>Poste</th><th>Coût</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>Infrastructure</td><td class="mono">0 €</td><td>Tourne sur le Supermicro, à côté d'OpenHands</td></tr>
+      <tr><td>API eBay</td><td class="mono">0 €</td><td>5 000 appels/jour, tu en utilises 11 %</td></tr>
+      <tr><td>API Reddit</td><td class="mono">0 €</td><td>Palier gratuit largement suffisant</td></tr>
+      <tr><td>Notifications ntfy</td><td class="mono">0 €</td><td>Service public gratuit, ou auto-hébergé</td></tr>
+      <tr><td><b>Extraction LLM — serveur local</b></td><td class="mono"><b>0 €</b></td><td>≈ 20 s de GPU/jour sur du matériel déjà en service (ADR-7)</td></tr>
+      <tr><td>Repli API distante — voie urgente</td><td class="mono">≈ 0,10 €/mois</td><td>Quelques appels par semaine, uniquement si le serveur local est saturé</td></tr>
+      <tr><td>API de scraping managée <span class="pill p-def">si besoin</span></td><td class="mono">≈ 6 €/mois</td><td>Seulement si Leboncoin résiste malgré le JA3 — env. 8,60 €/1 000 requêtes réussies</td></tr>
+      <tr><td><b>Total réaliste</b></td><td class="mono"><b>0 à 6 €/mois</b></td><td>À comparer aux 700 à 1 500 € d'écart sur un remplissage complet</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="col">
+    <p>Autrement dit : hors le cas où Leboncoin résiste, le projet ne coûte rien d'autre que ton temps — et il s'amortit dès la première bonne affaire. C'est précisément pourquoi le plan est construit pour livrer une notification utile en huit soirées plutôt qu'un système complet en vingt.</p>
+  </div>
+</section>
+
+<div class="foot col">
+  <p><b>Sources vérifiées en septembre 2026.</b> Les chemins JSON, identifiants de catégorie et quotas cités sont à re-confirmer pendant les spikes P0.3 — ce sont exactement les éléments que les plateformes changent sans préavis.</p>
+  <p>
+    <a href="https://developer.ebay.com/api-docs/buy/browse/resources/item_summary/methods/search">eBay Browse API — item_summary/search</a> ·
+    <a href="https://developer.ebay.com/develop/get-started/api-call-limits">eBay — API call limits</a> ·
+    <a href="https://scrapfly.io/blog/posts/how-to-scrape-leboncoin-marketplace-real-estate">Structure __NEXT_DATA__ de Leboncoin</a> ·
+    <a href="https://aimgroup.com/2026/01/07/leboncoin-works-with-datadome-on-scraping-protection/">Leboncoin &amp; DataDome</a> ·
+    <a href="https://datacenterdisk.com/server-ram/ddr4">Prix DDR4 ECC en $/Go</a> ·
+    <a href="https://pcserverandparts.com/news/refurbished-ddr4-server-memory-2026-server-ram-price-crisis/">Crise des prix DDR4 serveur 2026</a>
+  </p>
+</div>
+
+</div>
