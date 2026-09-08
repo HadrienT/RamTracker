@@ -141,6 +141,7 @@ def _replay(since_str: str) -> int:
     Strictement en lecture seule vis-à-vis de `alerts` : aucune notification.
     """
     since = datetime.fromisoformat(since_str)
+    apply_migrations()
     deps = build_deps()
     counters = {
         "rejouees": 0,
@@ -182,6 +183,7 @@ def _replay(since_str: str) -> int:
 
 
 def _report() -> int:
+    apply_migrations()
     deps = build_deps()
     now = utc_now()
     week_ago = (now - timedelta(days=7)).isoformat()
