@@ -38,6 +38,19 @@ class Settings(BaseSettings):
     ebay_client_secret: SecretStr = Field(alias="EBAY_CLIENT_SECRET")
     ebay_zip: str | None = Field(default=None, alias="EBAY_ZIP")
 
+    # Conformité RGPD/CCPA : point d'entrée de suppression de compte eBay (WP10).
+    # Requis dès que des clés eBay de production sont utilisées, sinon eBay
+    # suspend l'accès. Absents ⇒ le point d'entrée refuse de démarrer (create_app).
+    ebay_verification_token: SecretStr | None = Field(default=None, alias="EBAY_VERIFICATION_TOKEN")
+    ebay_deletion_endpoint_url: str | None = Field(default=None, alias="EBAY_DELETION_ENDPOINT_URL")
+
+    # File d'attente distante (Cloudflare Worker) : le Worker accuse réception 24/7,
+    # RamTracker tire les notifications en attente et efface en base quand il tourne.
+    account_deletion_queue_url: str | None = Field(default=None, alias="ACCOUNT_DELETION_QUEUE_URL")
+    account_deletion_pull_secret: SecretStr | None = Field(
+        default=None, alias="ACCOUNT_DELETION_PULL_SECRET"
+    )
+
     reddit_client_id: str | None = Field(default=None, alias="REDDIT_CLIENT_ID")
     reddit_client_secret: SecretStr | None = Field(default=None, alias="REDDIT_CLIENT_SECRET")
     reddit_user_agent: str | None = Field(default=None, alias="REDDIT_USER_AGENT")

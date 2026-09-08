@@ -1,0 +1,25 @@
+[Unit]
+# Point d'entrée de suppression de compte eBay (RGPD/CCPA, blueprint/wp/WP10).
+# Processus distinct de `ramtracker loop` : il ouvre un port en écoute.
+# À exposer publiquement UNIQUEMENT derrière un reverse-proxy TLS (nginx/Caddy)
+# qui termine HTTPS et, idéalement, restreint aux plages d'IP eBay.
+Description=RamTracker — point d'entrée suppression de compte eBay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ramtracker
+WorkingDirectory=/opt/ramtracker
+EnvironmentFile=/opt/ramtracker/.env
+# Écoute en local ; le proxy TLS fait face à Internet. Le port doit correspondre
+# à ce que le proxy route vers EBAY_DELETION_ENDPOINT_URL.
+ExecStart=/opt/ramtracker/.venv/bin/ramtracker serve-account-deletion --host 127.0.0.1 --port 8782
+Restart=on-failure
+RestartSec=30
+Nice=10
+CPUWeight=20
+IOWeight=20
+
+[Install]
+WantedBy=multi-user.target

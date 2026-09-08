@@ -177,18 +177,33 @@ CREATE TABLE llm_queue (
 CREATE INDEX idx_queue_lane ON llm_queue(lane, best_case);
 ```
 
+### `account_deletion_events` — trace de conformité RGPD/CCPA (WP10)
+
+```sql
+CREATE TABLE account_deletion_events (
+  notification_id  TEXT    PRIMARY KEY,   -- notification.notificationId eBay, dédoublonnage
+  received_at      TEXT    NOT NULL,
+  scrubbed_rows    INTEGER NOT NULL       -- lignes `listings` anonymisées
+);
+```
+
+eBay réémet la même notification jusqu'à ~24 h : la clé primaire rend le
+traitement idempotent. Le `username` reçu n'est **jamais** persisté — l'effacer
+est justement l'objet de la notification.
+
 ---
 
 ## 3. Rétention
 
 | Table | Conservation | Motif |
 |---|---|---|
-| `listings` | 90 jours, puis purge de `description` et `seller_id` | Données personnelles minimisées ; `raw_payload` et le reste sont conservés pour le rejeu |
+| `listings` | 90 jours, puis purge de `description` et `seller_id` ; anonymisation immédiate sur notification eBay (WP10) | Données personnelles minimisées ; `raw_payload` et le reste sont conservés pour le rejeu |
 | `spec_cache` | indéfinie | Ne contient aucune donnée personnelle et vaut son poids en appels LLM économisés |
 | `market_stats` | indéfinie | Volume négligeable, valeur historique |
 | `alerts` | indéfinie | Base de la boucle d'amélioration |
 | `source_runs` | 180 jours | Diagnostic |
 | `llm_queue` | vidée au traitement | File de travail |
+| `account_deletion_events` | indéfinie | Trace de conformité, sans donnée personnelle |
 
 La purge est une tâche du planificateur, pas un script manuel.
 

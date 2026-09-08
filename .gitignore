@@ -22,5 +22,8 @@ venv/
 .mypy_cache/
 *.egg-info/
 
+# node (worker Cloudflare)
+node_modules/
+
 # divers
 .DS_Store

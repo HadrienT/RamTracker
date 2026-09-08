@@ -51,11 +51,12 @@ résolution par étage. Aucun seuil de prix n'est écrit en dur — tout vit dan
 
 ## État
 
-Implémentation des WP01→WP09 en place : collecte eBay/Leboncoin/Reddit, cascade
+Implémentation des WP01→WP10 en place : collecte eBay/Leboncoin/Reddit, cascade
 d'extraction (références constructeur + grammaire + cohérence + préfiltre + repli
 LLM local), indice de marché, double barrière, notifications ntfy, ordonnanceur
 avec disjoncteur et chien de garde inversé, boucle de rejeu et rapport
-hebdomadaire.
+hebdomadaire, suppression de compte eBay (conformité RGPD/CCPA : Worker Cloudflare
+gratuit + `ramtracker account-deletion-drain`).
 
 Points marqués `[À CONFIRMER]` dans `configs/` et le code (id de catégorie eBay,
 chemins JSON Leboncoin, en-têtes ntfy, `response_format` du serveur LLM, tables
@@ -64,4 +65,8 @@ avec les spikes de `spikes/` et un vrai relevé de 150 titres pour le corpus dor
 (le fichier livré est un corpus de départ à étendre).
 
 Déploiement : `deploy/ramtracker.service` (systemd, `Type=simple`, tourne à côté
-d'OpenHands) ou `deploy/docker-compose.yml`.
+d'OpenHands) ou `deploy/docker-compose.yml`. La conformité RGPD/CCPA d'eBay est
+assurée sans rien exposer depuis la maison : un Cloudflare Worker gratuit
+(`deploy/worker/`, voir son README) accuse réception 24/7 et RamTracker tire la
+file. `deploy/ramtracker-account-deletion.service` reste disponible pour un
+auto-hébergement 24/7 optionnel.

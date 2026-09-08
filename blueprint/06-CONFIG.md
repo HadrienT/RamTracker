@@ -20,6 +20,10 @@ versionné. Priorité : variable d'environnement > YAML > défaut du modèle pyd
 | `EBAY_CLIENT_ID` | **oui** | — | Identifiant applicatif eBay |
 | `EBAY_CLIENT_SECRET` | **oui** | — | `SecretStr` |
 | `EBAY_ZIP` | non | — | Code postal pour `X-EBAY-C-ENDUSERCTX` — sans lui le port est faux |
+| `EBAY_VERIFICATION_TOKEN` | **oui** en prod | — | Jeton de suppression de compte (WP10) — 32-80 car. `[A-Za-z0-9_-]`, `SecretStr` |
+| `EBAY_DELETION_ENDPOINT_URL` | **oui** en prod | — | URL publique du Worker + chemin eBay, identique à celle du portail |
+| `ACCOUNT_DELETION_QUEUE_URL` | **oui** en prod | — | URL de base du Worker Cloudflare (WP10), sans chemin |
+| `ACCOUNT_DELETION_PULL_SECRET` | **oui** en prod | — | Jeton partagé RamTracker ↔ Worker pour `/pending` et `/ack` — `SecretStr` |
 | `REDDIT_CLIENT_ID` | non | — | Application « script » (WP08) |
 | `REDDIT_CLIENT_SECRET` | non | — | `SecretStr` |
 | `REDDIT_USER_AGENT` | non | — | Descriptif, obligatoire côté Reddit |
@@ -31,6 +35,14 @@ versionné. Priorité : variable d'environnement > YAML > défaut du modèle pyd
 `get_settings()` **lève `ConfigError`** en nommant la variable manquante. Aucun repli
 silencieux : une clé eBay absente doit arrêter le démarrage, pas produire zéro
 annonce (ce qui ressemblerait à un marché calme — cf. principe P3 du primer).
+
+Les quatre variables de suppression de compte eBay (WP10) sont optionnelles au
+niveau du modèle — la collecte n'en a pas besoin — mais **requises en production** :
+`EBAY_VERIFICATION_TOKEN` / `EBAY_DELETION_ENDPOINT_URL` vivent aussi dans le
+Worker (`wrangler`) et le portail eBay ; `ACCOUNT_DELETION_QUEUE_URL` /
+`ACCOUNT_DELETION_PULL_SECRET` servent au tirage de la file. `drain()` lève
+`ConfigError` si la file n'est configurée qu'à moitié plutôt que de rater
+silencieusement des effacements.
 
 ---
 

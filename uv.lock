@@ -1041,6 +1041,10 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+account-deletion = [
+    { name = "fastapi" },
+    { name = "uvicorn" },
+]
 feedback = [
     { name = "fastapi" },
     { name = "uvicorn" },
@@ -1064,6 +1068,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", marker = "extra == 'remote-llm'", specifier = ">=0.34" },
     { name = "curl-cffi", specifier = ">=0.7" },
+    { name = "fastapi", marker = "extra == 'account-deletion'", specifier = ">=0.110" },
     { name = "fastapi", marker = "extra == 'feedback'", specifier = ">=0.110" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic", specifier = ">=2.7" },
@@ -1071,10 +1076,11 @@ requires-dist = [
     { name = "python-ulid", specifier = ">=2.5" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "structlog", specifier = ">=24.1" },
+    { name = "uvicorn", marker = "extra == 'account-deletion'", specifier = ">=0.29" },
     { name = "uvicorn", marker = "extra == 'feedback'", specifier = ">=0.29" },
     { name = "zstandard", specifier = ">=0.22" },
 ]
-provides-extras = ["remote-llm", "feedback"]
+provides-extras = ["remote-llm", "feedback", "account-deletion"]
 
 [package.metadata.requires-dev]
 dev = [

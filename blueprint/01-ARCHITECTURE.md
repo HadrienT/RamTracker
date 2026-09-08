@@ -106,9 +106,17 @@ ce qui tourne déjà sur la machine.
 | serveur LLM local | HTTP, compatible OpenAI | aucune (boucle locale) | concurrence 1 côté RamTracker | `[À CONFIRMER]` forme du `response_format` |
 | ntfy | HTTPS POST | jeton dans l'URL du sujet | — | `[À CONFIRMER]` noms d'en-têtes |
 | API Anthropic | HTTPS | clé API | — | repli uniquement |
+| Worker Cloudflare (suppression compte eBay) | HTTPS JSON | `Bearer` sur `/pending` et `/ack` | palier gratuit | WP10 |
 
-Aucun port n'est ouvert en écoute par le service, sauf le point d'entrée HTTP des
-boutons d'action introduit en WP09, qui écoute sur `127.0.0.1` **uniquement**.
+Le service n'ouvre qu'un port en écoute : le point d'entrée des **boutons
+d'action** des notifications (WP09), sur `127.0.0.1` **uniquement**.
+
+La **suppression de compte eBay** (WP10, exigence RGPD/CCPA) est déportée sur un
+**Cloudflare Worker** (palier gratuit, toujours actif) qui accuse réception et met
+en file ; RamTracker tire cette file (`account-deletion-drain`) à chaque cycle.
+Rien n'est donc exposé publiquement depuis la maison. Une app FastAPI équivalente
+(`ramtracker serve-account-deletion`) existe pour les tests et un auto-hébergement
+24/7 optionnel.
 
 ---
 

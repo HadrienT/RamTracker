@@ -7,6 +7,8 @@ ramtracker backfill  --days 30
 ramtracker replay    --since 2026-08-01
 ramtracker report    --weekly
 ramtracker loop
+ramtracker account-deletion-drain
+ramtracker serve-account-deletion  --host 0.0.0.0 --port 8782
 """
 
 from __future__ import annotations
@@ -49,6 +51,10 @@ def main(argv: list[str] | None = None) -> int:
     p_rep = sub.add_parser("report")
     p_rep.add_argument("--weekly", action="store_true")
     sub.add_parser("loop")
+    sub.add_parser("account-deletion-drain")
+    p_del = sub.add_parser("serve-account-deletion")
+    p_del.add_argument("--host", default="0.0.0.0")  # point d'entrée public
+    p_del.add_argument("--port", type=int, default=8782)
 
     args = parser.parse_args(argv)
     configure_logging()
@@ -70,6 +76,10 @@ def main(argv: list[str] | None = None) -> int:
         return _report()
     if args.cmd == "loop":
         return _loop()
+    if args.cmd == "account-deletion-drain":
+        return _account_deletion_drain()
+    if args.cmd == "serve-account-deletion":
+        return _serve_account_deletion(args.host, args.port)
     return 1
 
 
@@ -101,7 +111,10 @@ def _backfill(days: int) -> int:
 
 
 def _post_cycle(deps: pipeline.Deps) -> None:
-    """Chien de garde, recalcul d'indice, vidange de la file LLM différée."""
+    """Chien de garde, recalcul d'indice, file LLM différée, file suppression eBay."""
+    from ramtracker.runtime.ebay_deletion import drain as drain_account_deletion
+
+    drain_account_deletion()
     with session_scope() as conn:
         anomalies = watchdog_check(conn, load_watchdog_policy(), utc_now())
         for anomaly in anomalies:
@@ -266,6 +279,26 @@ def _loop() -> int:
     except KeyboardInterrupt:  # pragma: no cover
         _log.info("loop.stop")
         return 0
+
+
+def _serve_account_deletion(host: str, port: int) -> int:
+    """Point d'entrée de conformité RGPD/CCPA eBay (WP10). Bloquant."""
+    apply_migrations()
+    from ramtracker.runtime.ebay_deletion import serve
+
+    _log.info("account_deletion.serve", host=host, port=port)
+    serve(host=host, port=port)
+    return 0
+
+
+def _account_deletion_drain() -> int:
+    """Tire la file du Worker eBay et efface en base (WP10)."""
+    apply_migrations()
+    from ramtracker.runtime.ebay_deletion import drain
+
+    count = drain()
+    print(f"notifications de suppression traitées : {count}")
+    return 0
 
 
 def _row_to_listing(r: sqlite3.Row) -> RawListing:

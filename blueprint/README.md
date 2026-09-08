@@ -61,6 +61,7 @@ livrables et ses critères d'acceptation. Ils sont ordonnés par dépendance.
 | [WP07](wp/WP07-extract-llm.md) | `extract.llm` — préfiltre €/Go admissible + repli LLM local | WP02 · WP06 pour la voie différée | WP08 |
 | [WP08](wp/WP08-collect-lbc-reddit.md) | Collecteurs Leboncoin (DataDome) & Reddit | WP03, WP06 | WP07 |
 | [WP09](wp/WP09-feedback.md) | Boucle d'amélioration — retour d'usage, rapport, rejeu du parseur | WP06 | — |
+| [WP10](wp/WP10-ebay-account-deletion.md) | Point d'entrée de suppression de compte eBay — conformité RGPD/CCPA | WP03 | WP07 · WP08 · WP09 |
 
 ---
 
@@ -81,6 +82,7 @@ graph LR
     WP03 --> WP08[WP08 LBC + Reddit]
     WP06 --> WP08
     WP06 --> WP09[WP09 feedback]
+    WP03 --> WP10[WP10 suppression compte eBay]
 ```
 
 **Chemin critique minimal pour recevoir une vraie notification** :
@@ -121,5 +123,5 @@ redécoupe en work packages, qui sont plus fins et alignés sur les packages Pyt
 | P3 — Collecteurs | WP03 (eBay), WP08 (Leboncoin, Reddit) |
 | P4 — Décision | WP04 |
 | P5 — Notification | WP05 |
-| P6 — Exploitation | WP06 |
+| P6 — Exploitation | WP06, WP10 (conformité eBay) |
 | P7 — Boucle d'amélioration | WP09 |

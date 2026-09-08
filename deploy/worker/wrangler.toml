@@ -1,0 +1,19 @@
+name = "ramtracker-ebay-deletion"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+# Créer d'abord le namespace : `npx wrangler kv namespace create PENDING`
+# puis coller l'`id` renvoyé ci-dessous.
+[[kv_namespaces]]
+binding = "PENDING"
+id = "e5eaf77b919e464a9bbf4913e78b6231"
+
+[vars]
+# URL publique de CE worker (visible après `wrangler deploy`) suivie du chemin eBay.
+# Doit être identique au caractère près à l'URL saisie dans le portail eBay.
+EBAY_DELETION_ENDPOINT_URL = "https://ramtracker-ebay-deletion.htramoni.workers.dev/ebay/marketplace-account-deletion"
+
+# Secrets (jamais dans ce fichier) :
+#   npx wrangler secret put EBAY_VERIFICATION_TOKEN
+#   npx wrangler secret put PULL_SECRET
