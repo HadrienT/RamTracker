@@ -14,6 +14,12 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 @pytest.fixture(autouse=True)
 def _env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
+    # Isole les tests du `.env` du développeur : pydantic-settings lit un
+    # `.env` dans le CWD, ce qui masquerait les variables supprimées en test.
+    from ramtracker.core.config import Settings
+
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("EBAY_CLIENT_ID", "test-id")
     monkeypatch.setenv("EBAY_CLIENT_SECRET", "test-secret")
     monkeypatch.setenv("EBAY_ZIP", "69001")
