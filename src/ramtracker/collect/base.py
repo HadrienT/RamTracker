@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
@@ -25,6 +26,35 @@ class Collector(Protocol):
     name: str
 
     def fetch_recent(self, since: datetime) -> CollectResult: ...
+
+
+@dataclass(frozen=True)
+class QuantityHint:
+    """Ce qu'une source sait de la quantité d'une annonce (résolution à la demande).
+
+    Sert à trancher « le prix affiché est celui du lot » de « … celui d'un module,
+    l'acheteur choisit la quantité ». `lot_size >= 2` = vrai lot vendu groupé ;
+    `lot_size <= 1` avec plusieurs exemplaires disponibles = annonce multi-quantité
+    dont le prix est unitaire.
+    """
+
+    lot_size: int
+    available_qty: int
+
+    @property
+    def is_lot(self) -> bool:
+        return self.lot_size >= 2
+
+    @property
+    def is_multi_unit(self) -> bool:
+        return self.lot_size <= 1 and self.available_qty >= 2
+
+
+@runtime_checkable
+class QuantityResolver(Protocol):
+    """Collecteur capable de lever l'ambiguïté prix-lot / prix-unité d'une annonce."""
+
+    def quantity_hint(self, external_id: str, country: str) -> QuantityHint | None: ...
 
 
 # --- schéma de configs/sources.yaml -------------------------------------------------

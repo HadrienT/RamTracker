@@ -65,6 +65,10 @@ def evaluate_detailed(
         return EvalOutcome(None, reason="total_gb_unknown")
 
     price_eur = to_eur(listing.price, listing.currency, rates)
+    # Base « unité » : le prix affiché est celui d'UN module. On le ramène à
+    # l'équivalent du lot complet pour que €/Go et décote portent sur `total_gb`.
+    if spec.price_basis is PriceBasis.UNIT and spec.module_count > 1:
+        price_eur = price_eur * spec.module_count
     shipping_eur = (
         to_eur(listing.shipping, listing.currency, rates) if listing.shipping is not None else None
     )

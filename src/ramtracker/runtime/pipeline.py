@@ -15,7 +15,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from ramtracker.collect.base import Collector, CollectResult
+from ramtracker.collect.base import Collector, CollectResult, QuantityResolver
 from ramtracker.core.clock import utc_now
 from ramtracker.core.errors import (
     SourceAuthError,
@@ -25,7 +25,7 @@ from ramtracker.core.errors import (
     SourceUnavailable,
 )
 from ramtracker.core.logging import get_logger, new_run_id, run_context
-from ramtracker.core.models import Deal, MemorySpec, RawListing
+from ramtracker.core.models import Deal, MemorySpec, PriceBasis, RawListing
 from ramtracker.decide import dedupe, market
 from ramtracker.decide.policy import ThresholdPolicy
 from ramtracker.decide.thresholds import evaluate_detailed, in_observation_mode
@@ -73,6 +73,7 @@ class Deps:
     mute_endpoint: str | None = None
     parser_version: int = PARSER_VERSION
     server_busy: Callable[[], bool] = field(default=lambda: False)
+    verify_multi_quantity: bool = True
 
 
 def _since(conn: sqlite3.Connection, source: str, now: datetime) -> datetime:
@@ -262,6 +263,8 @@ def _handle_listing(
         _enqueue_for_llm(listing, deps, conn)
         return out
 
+    spec = _verify_price_basis(spec, listing, deps, conn)
+
     result = evaluate_detailed(listing, spec, index, deps.policy, now, observation=observation)
     if result.send_to_llm and deps.llm_enabled:
         _enqueue_for_llm(listing, deps, conn)
@@ -270,6 +273,50 @@ def _handle_listing(
     if result.deal is not None and _send(deps, conn, result.deal, now):
         out.alerted = True
     return out
+
+
+def _verify_price_basis(
+    spec: MemorySpec, listing: RawListing, deps: Deps, conn: sqlite3.Connection
+) -> MemorySpec:
+    """Lève l'ambiguïté lot / prix unitaire d'une annonce multi-modules.
+
+    Les règles marquent « lot » dès qu'un « 4x32Go » est présent, mais une annonce
+    eBay multi-quantité affiche le prix d'*un* module. Un `getItem` tranche :
+    `lotSize >= 2` = vrai lot, sinon plusieurs exemplaires = prix unitaire. Un seul
+    appel réseau, seulement pour une spec qualifiée par les règles et non déjà
+    résolue en « unité ».
+    """
+    if not deps.verify_multi_quantity or not spec.qualified:
+        return spec
+    if spec.module_count <= 1 or spec.price_basis is PriceBasis.UNIT:
+        return spec
+    collector = deps.collectors.get(listing.source)
+    if not isinstance(collector, QuantityResolver):
+        return spec
+
+    hint = collector.quantity_hint(listing.external_id, listing.country)
+    if hint is None:
+        return spec
+    if hint.is_multi_unit:
+        resolved = PriceBasis.UNIT
+    elif hint.is_lot:
+        resolved = PriceBasis.LOT
+    else:
+        return spec
+    if resolved is spec.price_basis:
+        return spec
+
+    updated = spec.model_copy(update={"price_basis": resolved})
+    _store_spec(conn, listing.spec_hash, updated, deps.parser_version)
+    _log.info(
+        "listing.price_basis.resolved",
+        listing_id=f"{listing.source}:{listing.external_id}",
+        was=spec.price_basis.value,
+        now=resolved.value,
+        lot_size=hint.lot_size,
+        available_qty=hint.available_qty,
+    )
+    return updated
 
 
 def _enqueue_for_llm(listing: RawListing, deps: Deps, conn: sqlite3.Connection) -> None:

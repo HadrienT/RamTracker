@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import pytest
 
-from ramtracker.collect.base import CollectResult
+from ramtracker.collect.base import CollectResult, QuantityHint
 from ramtracker.core.config import load_yaml
 from ramtracker.core.db import connection
 from ramtracker.core.errors import SourceUnavailable
@@ -135,3 +135,50 @@ def test_reposts_do_not_realert() -> None:
     deps.collectors["ebay"] = FakeCollector("ebay", repost)
     run_source("ebay", deps, NOW)
     assert len(notifier.sent) == 1
+
+
+class FakeCollectorWithQuantity(FakeCollector):
+    def __init__(self, name: str, result: CollectResult, hint: QuantityHint | None) -> None:
+        super().__init__(name, result)
+        self._hint = hint
+
+    def quantity_hint(self, external_id: str, country: str) -> QuantityHint | None:
+        return self._hint
+
+
+_KIT_TITLE = "SK hynix 128Go (4x32Go) Disponible DDR4 ECC LRDIMM PC4-2400T"
+
+
+def test_multi_quantity_listing_reclassified_as_unit_price_and_not_alerted() -> None:
+    notifier = RecordingNotifier()
+    # 4x32 Go à 99,50 € : en « lot » ~0,82 €/Go => alerte. getItem dit multi-quantité.
+    result = CollectResult(
+        source="ebay",
+        listings=[_listing(_KIT_TITLE, "99.50")],
+        raw_count=1,
+        duration_ms=5,
+    )
+    hint = QuantityHint(lot_size=0, available_qty=4)
+    deps = _deps({"ebay": FakeCollectorWithQuantity("ebay", result, hint)}, notifier)
+    report = run_source("ebay", deps, NOW)
+    assert report.qualified == 1
+    assert report.alerted == 0
+    assert not notifier.sent
+    with connection() as conn:
+        basis = conn.execute("SELECT price_basis FROM spec_cache").fetchone()["price_basis"]
+    assert basis == "unit"
+
+
+def test_true_lot_listing_still_alerts() -> None:
+    notifier = RecordingNotifier()
+    result = CollectResult(
+        source="ebay",
+        listings=[_listing(_KIT_TITLE, "99.50")],
+        raw_count=1,
+        duration_ms=5,
+    )
+    hint = QuantityHint(lot_size=4, available_qty=4)
+    deps = _deps({"ebay": FakeCollectorWithQuantity("ebay", result, hint)}, notifier)
+    report = run_source("ebay", deps, NOW)
+    assert report.alerted == 1
+    assert notifier.sent

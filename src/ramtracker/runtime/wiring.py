@@ -42,6 +42,7 @@ def build_deps(*, breaker: Breaker | None = None) -> Deps:
         mute_endpoint=_mute_endpoint(),
         parser_version=PARSER_VERSION,
         server_busy=_server_busy_probe(settings.llm_base_url),
+        verify_multi_quantity=policy.guards.verify_multi_quantity,
     )
 
 

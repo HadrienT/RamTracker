@@ -18,7 +18,7 @@ from typing import Any
 
 import httpx
 
-from ramtracker.collect.base import CollectResult, EbaySource
+from ramtracker.collect.base import CollectResult, EbaySource, QuantityHint
 from ramtracker.core.clock import utc_now
 from ramtracker.core.config import Settings
 from ramtracker.core.errors import (
@@ -36,6 +36,7 @@ _log = get_logger("collect.ebay")
 
 _OAUTH_URL = "https://api.ebay.com/identity/v1/oauth2/token"
 _SEARCH_URL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+_ITEM_URL = "https://api.ebay.com/buy/browse/v1/item/"
 _SCOPE = "https://api.ebay.com/oauth/api_scope"
 _TOKEN_REFRESH_SKEW_S = 300
 
@@ -205,6 +206,42 @@ class EbayCollector:
             return dict(resp.json())
         except json.JSONDecodeError as exc:
             raise SourceSchemaChanged("réponse eBay non-JSON", source=self.name) from exc
+
+    # -- résolution de quantité (lot vs unité) ---------------------------------
+
+    def quantity_hint(self, external_id: str, country: str) -> QuantityHint | None:
+        """`lotSize` + quantité disponible d'une annonce, via `getItem`.
+
+        `item_summary/search` ne les renvoie pas ; il faut un appel dédié. Best
+        effort : toute erreur renvoie `None` (on garde alors la base de prix des
+        règles). Le seul champ qui compte est le rapport lot / multi-quantité.
+        """
+        marketplace = (
+            f"EBAY_{country.upper()}" if len(country) == 2 else self._config.marketplaces[0]
+        )
+        headers = {
+            "Authorization": f"Bearer {self._bearer()}",
+            "X-EBAY-C-MARKETPLACE-ID": marketplace,
+        }
+        try:
+            resp = self._client.get(_ITEM_URL + external_id, headers=headers)
+        except httpx.HTTPError:
+            return None
+        if resp.status_code != 200:
+            _log.info("ebay.getitem.skipped", status=resp.status_code, external_id=external_id)
+            return None
+        try:
+            body = dict(resp.json())
+        except json.JSONDecodeError:
+            return None
+        qty = 0
+        for avail in body.get("estimatedAvailabilities") or []:
+            for key in ("estimatedAvailableQuantity", "estimatedRemainingQuantity"):
+                value = avail.get(key)
+                if isinstance(value, int):
+                    qty = max(qty, value)
+        lot = body.get("lotSize")
+        return QuantityHint(lot_size=lot if isinstance(lot, int) else 0, available_qty=qty)
 
 
 def _or_query(queries: list[str]) -> str:

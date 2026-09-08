@@ -22,6 +22,9 @@ class Guards(BaseModel):
     plausibility_floor_eur_per_gb: Decimal
     min_total_gb: int
     min_confidence: float = 0.80
+    # Avant d'alerter sur une annonce multi-modules, lever l'ambiguïté lot / prix
+    # unitaire auprès de la source (un appel réseau par annonce concernée).
+    verify_multi_quantity: bool = True
 
 
 class Shipping(BaseModel):

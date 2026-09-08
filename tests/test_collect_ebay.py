@@ -161,3 +161,50 @@ def test_item_without_any_price_is_skipped_not_a_schema_error() -> None:
 
     result = _make(handler).fetch_recent(utc_now())
     assert result.listings == []
+
+
+def test_quantity_hint_reads_lotsize_and_availability() -> None:
+    captured: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "oauth2/token" in str(request.url):
+            return _token_ok(request)
+        captured["path"] = request.url.path
+        captured["marketplace"] = request.headers["X-EBAY-C-MARKETPLACE-ID"]
+        return httpx.Response(
+            200,
+            json={
+                "itemId": "v1|188876773706|0",
+                "price": {"value": "99.50", "currency": "EUR"},
+                "lotSize": 0,
+                "estimatedAvailabilities": [
+                    {"estimatedAvailableQuantity": 4, "estimatedRemainingQuantity": 4}
+                ],
+            },
+        )
+
+    hint = _make(handler).quantity_hint("v1|188876773706|0", "FR")
+    assert hint is not None
+    assert hint.lot_size == 0 and hint.available_qty == 4
+    assert hint.is_multi_unit and not hint.is_lot
+    assert captured["path"].endswith("/buy/browse/v1/item/v1|188876773706|0")
+    assert captured["marketplace"] == "EBAY_FR"
+
+
+def test_quantity_hint_true_lot() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "oauth2/token" in str(request.url):
+            return _token_ok(request)
+        return httpx.Response(200, json={"lotSize": 4, "estimatedAvailabilities": []})
+
+    hint = _make(handler).quantity_hint("v1|1|0", "DE")
+    assert hint is not None and hint.is_lot and not hint.is_multi_unit
+
+
+def test_quantity_hint_swallows_errors() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "oauth2/token" in str(request.url):
+            return _token_ok(request)
+        return httpx.Response(404, json={})
+
+    assert _make(handler).quantity_hint("v1|1|0", "FR") is None
