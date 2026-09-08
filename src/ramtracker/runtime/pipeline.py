@@ -256,20 +256,31 @@ def _handle_listing(
     if not listing.alert_eligible:
         return out
 
+    # Quarantaine (confiance insuffisante) : si le LLM est activé et que le
+    # préfiltre ne l'écarte pas, on met en file plutôt qu'en quarantaine sèche.
+    if spec.reject_reason == "low_confidence" and deps.llm_enabled:
+        _enqueue_for_llm(listing, deps, conn)
+        return out
+
     result = evaluate_detailed(listing, spec, index, deps.policy, now, observation=observation)
     if result.send_to_llm and deps.llm_enabled:
-        best = best_case_eur_per_gb(listing, _listing_text(listing))
-        lane = llm_queue.lane_for(
-            best,
-            deps.policy.barriers.hard_ceiling_eur_per_gb,
-            llm_queue.load_llm_policy().urgent_lane_margin,
-        )
-        llm_queue.enqueue(conn, listing.spec_hash, lane, best)
+        _enqueue_for_llm(listing, deps, conn)
         return out
 
     if result.deal is not None and _send(deps, conn, result.deal, now):
         out.alerted = True
     return out
+
+
+def _enqueue_for_llm(listing: RawListing, deps: Deps, conn: sqlite3.Connection) -> None:
+    """Range une annonce ambiguë dans la file LLM, voie urgente ou différée."""
+    best = best_case_eur_per_gb(listing, _listing_text(listing))
+    lane = llm_queue.lane_for(
+        best,
+        deps.policy.barriers.hard_ceiling_eur_per_gb,
+        llm_queue.load_llm_policy().urgent_lane_margin,
+    )
+    llm_queue.enqueue(conn, listing.spec_hash, lane, best)
 
 
 def _send(deps: Deps, conn: sqlite3.Connection, deal: Deal, now: datetime) -> bool:

@@ -12,7 +12,7 @@ ebay:
     - "DDR4 ECC REG serveur"
     - "PC4-2133P"
     - "PC4-2400T"
-  price_range_eur: [15, 3000]
+  price_range_eur: [1, 300]
   limit: 200
 
 reddit:
