@@ -32,9 +32,11 @@ class NtfyNotifier:
         headers = {
             "X-Title": _ascii(n.title),
             "X-Priority": str(n.priority),
-            "X-Tags": ",".join(n.tags),
-            "X-Click": n.click,
         }
+        if n.tags:
+            headers["X-Tags"] = ",".join(n.tags)
+        if n.click:
+            headers["X-Click"] = n.click
         if n.actions:
             headers["X-Actions"] = json.dumps(
                 [_action_header(a) for a in n.actions], ensure_ascii=True
