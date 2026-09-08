@@ -112,3 +112,52 @@ def test_multiple_queries_become_an_or_group() -> None:
     ).fetch_recent(utc_now())
 
     assert captured["q"] == "(DDR4 ECC RDIMM,PC4-2400T)"
+
+
+def test_auction_without_price_uses_current_bid() -> None:
+    payload = {
+        "total": 1,
+        "itemSummaries": [
+            {
+                "itemId": "v1|auction1|0",
+                "title": "SK hynix 16Go DDR4 ECC RDIMM PC4-2400T",
+                "itemWebUrl": "https://www.ebay.fr/itm/auction1",
+                "buyingOptions": ["AUCTION"],
+                "currentBidPrice": {"value": "16.15", "currency": "EUR"},
+                "bidCount": 3,
+                "itemEndDate": "2026-09-09T12:00:00.000Z",
+            }
+        ],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "oauth2/token" in str(request.url):
+            return _token_ok(request)
+        return httpx.Response(200, json=payload)
+
+    result = _make(handler).fetch_recent(utc_now())
+    listing = next(x for x in result.listings if x.external_id == "v1|auction1|0")
+    assert str(listing.price) == "16.15"
+    assert str(listing.current_bid) == "16.15"
+
+
+def test_item_without_any_price_is_skipped_not_a_schema_error() -> None:
+    payload = {
+        "total": 1,
+        "itemSummaries": [
+            {
+                "itemId": "v1|noprice|0",
+                "title": "annonce sans prix",
+                "itemWebUrl": "https://www.ebay.fr/itm/noprice",
+                "buyingOptions": ["AUCTION"],
+            }
+        ],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "oauth2/token" in str(request.url):
+            return _token_ok(request)
+        return httpx.Response(200, json=payload)
+
+    result = _make(handler).fetch_recent(utc_now())
+    assert result.listings == []

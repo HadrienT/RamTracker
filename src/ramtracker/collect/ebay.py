@@ -243,14 +243,20 @@ def _to_listing(item: dict[str, Any], marketplace: str, since: datetime) -> RawL
     try:
         external_id = str(item["itemId"])
         title = str(item["title"])
-        price_block = item["price"]
-        price = _decimal(price_block["value"])
-        currency = str(price_block["currency"])
         url = str(item["itemWebUrl"])
     except KeyError as exc:
         raise SourceSchemaChanged(
             "champ obligatoire absent d'une annonce eBay", source="ebay", missing=str(exc)
         ) from exc
+
+    # Les enchères n'exposent pas `price` ; leur prix courant est `currentBidPrice`.
+    # Une annonce sans aucune information de prix est ignorée (pas une rupture de
+    # schéma : la plupart des annonces en ont une).
+    price_block = item.get("price") or item.get("currentBidPrice")
+    if not isinstance(price_block, dict) or "value" not in price_block:
+        return None
+    price = _decimal(price_block["value"])
+    currency = str(price_block.get("currency", "EUR"))
     if price is None:
         return None
 
