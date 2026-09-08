@@ -122,15 +122,25 @@ mais n'est pas le mode de déploiement retenu.
 
 ---
 
-## 7. Suivi ouvert
+## 7. Vérification de la signature `x-ebay-signature`
 
-- **Vérification de la signature `x-ebay-signature`** — `[À CONFIRMER]`. eBay la
-  recommande mais le test de validation ne l'exige pas. L'implémenter (dans le
-  Worker) demande de récupérer la clé publique eBay
-  (`commerce/notification/v1/public_key/{kid}`) et de vérifier une signature ECDSA
-  sur le corps brut. En attendant, `/pending` et `/ack` sont derrière
-  `PULL_SECRET` ; l'impact d'un POST forgé sur le chemin eBay se limite à une
-  anonymisation anticipée (que la rétention à 90 jours ferait de toute façon).
+**Fait dans le Worker** (`deploy/worker/src/worker.js`). Le header est un JSON
+base64 `{ alg, kid, signature, digest }` ; la signature est en DER, courbe P-256,
+condensé SHA-1 (seul schéma qu'eBay émet). Le Worker récupère la clé publique via
+`commerce/notification/v1/public_key/{kid}` (jeton `client_credentials`, cache par
+`kid`), convertit la signature DER → P1363 pour WebCrypto et vérifie contre les
+octets du corps (repli sur une resérialisation JSON compacte). Signature invalide
+⇒ **412**, jamais mise en file. `ENFORCE_SIGNATURE=false` repasse en audit ; sans
+les secrets `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` du Worker, c'est fail-open tracé.
+
+**Reste ouvert :**
+
+- **App FastAPI** (`create_app()`, chemin test / auto-hébergement 24/7) : ne
+  vérifie pas encore. À faire avec `cryptography` (`load_pem_public_key`, `verify`
+  accepte le DER nativement) *si* ce mode est retenu ; le Worker étant la voie
+  utilisée, non bloquant.
+- **Allow-list d'IP eBay** en règle WAF Cloudflare sur le chemin de notification
+  (cf. `deploy/worker/README.md`) — défense en profondeur, non scriptable.
 
 ---
 

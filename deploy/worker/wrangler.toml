@@ -14,6 +14,13 @@ id = "e5eaf77b919e464a9bbf4913e78b6231"
 # Doit être identique au caractère près à l'URL saisie dans le portail eBay.
 EBAY_DELETION_ENDPOINT_URL = "https://ramtracker-ebay-deletion.htramoni.workers.dev/ebay/marketplace-account-deletion"
 
+# "false" : la signature x-ebay-signature est seulement auditée (log), jamais
+# bloquante. Par défaut (absente) le worker rejette en 412 une notification dont
+# la signature ECDSA ne se vérifie pas.
+# ENFORCE_SIGNATURE = "false"
+
 # Secrets (jamais dans ce fichier) :
-#   npx wrangler secret put EBAY_VERIFICATION_TOKEN
-#   npx wrangler secret put PULL_SECRET
+#   npx wrangler secret put EBAY_VERIFICATION_TOKEN   # identique au portail eBay et à .env
+#   npx wrangler secret put PULL_SECRET               # partagé avec RamTracker (/pending, /ack)
+#   npx wrangler secret put EBAY_CLIENT_ID            # clé applicative eBay (getPublicKey)
+#   npx wrangler secret put EBAY_CLIENT_SECRET        # cert applicatif eBay associé
