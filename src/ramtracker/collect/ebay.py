@@ -155,7 +155,7 @@ class EbayCollector:
 
     def _search(self, marketplace: str, sale_filter: str, sort: str) -> dict[str, Any]:
         params = {
-            "q": " ".join(self._config.queries) if self._config.queries else "DDR4 ECC",
+            "q": _or_query(self._config.queries),
             "filter": (
                 f"{sale_filter},"
                 f"price:[{self._config.price_range_eur[0]}.."
@@ -205,6 +205,21 @@ class EbayCollector:
             return dict(resp.json())
         except json.JSONDecodeError as exc:
             raise SourceSchemaChanged("réponse eBay non-JSON", source=self.name) from exc
+
+
+def _or_query(queries: list[str]) -> str:
+    """Combine plusieurs recherches en un `q` unique.
+
+    Concaténées par une espace, les entrées formeraient un ET implicite qui ne
+    remonte quasiment rien (« DDR4 ECC RDIMM PC4-2133P PC4-2400T » ne matche
+    aucune annonce). eBay Browse admet un OU explicite : `q=(phrase1,phrase2)`.
+    """
+    cleaned = [q.strip() for q in queries if q.strip()]
+    if not cleaned:
+        return "DDR4 ECC"
+    if len(cleaned) == 1:
+        return cleaned[0]
+    return "(" + ",".join(cleaned) + ")"
 
 
 def _extract_items(payload: dict[str, Any]) -> list[dict[str, Any]]:

@@ -94,3 +94,21 @@ def test_missing_field_is_schema_changed_not_keyerror() -> None:
 
     with pytest.raises(SourceSchemaChanged):
         _make(handler).fetch_recent(utc_now())
+
+
+def test_multiple_queries_become_an_or_group() -> None:
+    captured: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "oauth2/token" in str(request.url):
+            return _token_ok(request)
+        captured["q"] = dict(request.url.params)["q"]
+        return httpx.Response(200, json={"total": 0, "itemSummaries": []})
+
+    EbayCollector(
+        EbaySource(marketplaces=["EBAY_FR"], queries=["DDR4 ECC RDIMM", "PC4-2400T"]),
+        get_settings(),
+        client=_client(handler),
+    ).fetch_recent(utc_now())
+
+    assert captured["q"] == "(DDR4 ECC RDIMM,PC4-2400T)"
