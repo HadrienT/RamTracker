@@ -118,7 +118,9 @@ def _backfill(days: int) -> int:
 def _post_cycle(deps: pipeline.Deps) -> None:
     """Chien de garde, recalcul d'indice, file LLM différée, file suppression eBay."""
     from ramtracker.runtime.ebay_deletion import drain as drain_account_deletion
+    from ramtracker.runtime.ebay_deletion import push_seller_allowlist
 
+    push_seller_allowlist()  # avant le tirage : le Worker filtre sur une liste fraîche
     drain_account_deletion()
     with session_scope() as conn:
         anomalies = watchdog_check(conn, load_watchdog_policy(), utc_now())
@@ -434,10 +436,13 @@ def _serve_account_deletion(host: str, port: int) -> int:
 
 
 def _account_deletion_drain() -> int:
-    """Tire la file du Worker eBay et efface en base (WP10)."""
+    """Publie l'allow-list vendeurs, tire la file du Worker eBay et efface en base (WP10)."""
     apply_migrations()
-    from ramtracker.runtime.ebay_deletion import drain
+    from ramtracker.runtime.ebay_deletion import drain, push_seller_allowlist
 
+    pushed = push_seller_allowlist()
+    if pushed:
+        print(f"allow-list vendeurs publiée : {pushed}")
     count = drain()
     print(f"notifications de suppression traitées : {count}")
     return 0

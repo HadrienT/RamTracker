@@ -5,10 +5,17 @@
 // mises en file dans Cloudflare KV ; RamTracker les tire (`ramtracker
 // account-deletion-drain`) et efface en base quand il tourne.
 //
+// eBay émet une notification par compte fermé dans TOUTE l'UE (~600/jour) : sans
+// filtre, une écriture KV chacune ferait sauter le palier gratuit (1000/jour).
+// RamTracker pousse donc via POST /allowlist la liste des vendeurs qu'il suit
+// réellement ; le worker n'écrit en file que pour ces vendeurs-là, et acquitte le
+// reste sans toucher KV. Les entrées mises en file expirent seules (expirationTtl)
+// — /ack reste accepté mais n'est plus nécessaire.
+//
 // Variables (wrangler) :
 //   EBAY_VERIFICATION_TOKEN   secret — 32-80 car. [A-Za-z0-9_-], identique au portail eBay
 //   EBAY_DELETION_ENDPOINT_URL var   — URL publique de CE worker + le chemin ci-dessous
-//   PULL_SECRET               secret — jeton partagé avec RamTracker pour /pending et /ack
+//   PULL_SECRET               secret — jeton partagé avec RamTracker (/pending, /ack, /allowlist)
 //   EBAY_CLIENT_ID            secret — clé applicative eBay, pour récupérer la clé publique
 //   EBAY_CLIENT_SECRET        secret — cert applicatif eBay associé
 //   ENFORCE_SIGNATURE         var    — "false" pour n'auditer que (défaut : rejette en 412)
@@ -16,6 +23,11 @@
 
 const PATH = "/ebay/marketplace-account-deletion";
 const TOPIC = "MARKETPLACE_ACCOUNT_DELETION";
+
+// Clé KV réservée à la liste des vendeurs suivis (jamais renvoyée par /pending).
+const ALLOWLIST_KEY = "__allowlist__";
+const ALLOWLIST_TTL_MS = 300_000; // re-lecture de l'allow-list au plus toutes les 5 min
+const QUEUE_TTL_S = 604_800; // une notification en file expire d'elle-même après 7 jours
 
 const OAUTH_URL = "https://api.ebay.com/identity/v1/oauth2/token";
 const OAUTH_SCOPE = "https://api.ebay.com/oauth/api_scope";
@@ -29,6 +41,33 @@ async function sha256Hex(input) {
 function bearerOk(request, env) {
   const header = request.headers.get("Authorization") || "";
   return Boolean(env.PULL_SECRET) && header === `Bearer ${env.PULL_SECRET}`;
+}
+
+// -- allow-list des vendeurs suivis --------------------------------------------
+//
+// Poussée par RamTracker (POST /allowlist). Gardée en mémoire de l'isolate et
+// rafraîchie au plus toutes les ALLOWLIST_TTL_MS. Tant qu'aucune liste n'a été
+// publiée (ou si KV est illisible), on laisse passer : mieux vaut une écriture de
+// trop qu'une notification perdue.
+
+let allowlistCache = { names: null, at: 0 };
+
+async function isTracked(username, env) {
+  const now = Date.now();
+  if (!allowlistCache.names || now - allowlistCache.at > ALLOWLIST_TTL_MS) {
+    try {
+      const raw = await env.PENDING.get(ALLOWLIST_KEY);
+      if (raw !== null) {
+        allowlistCache = { names: new Set(JSON.parse(raw)), at: now };
+      } else if (!allowlistCache.names) {
+        return true; // aucune allow-list encore publiée
+      }
+    } catch (err) {
+      console.log(`allow-list illisible (${err.message})`);
+      if (!allowlistCache.names) return true;
+    }
+  }
+  return allowlistCache.names.has(username);
 }
 
 // -- vérification du header x-ebay-signature -------------------------------------
@@ -196,7 +235,7 @@ export default {
       const notification = payload?.notification;
       const id = notification?.notificationId;
       const username = notification?.data?.username;
-      if (topic === TOPIC && id && username) {
+      if (topic === TOPIC && id && username && (await isTracked(username, env))) {
         // La clé = notificationId : eBay réémet la même notification, put écrase.
         await env.PENDING.put(id, "1", {
           metadata: {
@@ -205,8 +244,24 @@ export default {
             receivedAt: new Date().toISOString(),
             verified: verdict === "ok",
           },
+          expirationTtl: QUEUE_TTL_S,
         });
       }
+      return new Response(null, { status: 204 });
+    }
+
+    // -- RamTracker publie la liste des vendeurs qu'il suit
+    if (request.method === "POST" && url.pathname === "/allowlist") {
+      if (!bearerOk(request, env)) return new Response("interdit", { status: 403 });
+      let names;
+      try {
+        names = await request.json();
+      } catch {
+        return new Response("json invalide", { status: 400 });
+      }
+      if (!Array.isArray(names)) return new Response("tableau attendu", { status: 400 });
+      await env.PENDING.put(ALLOWLIST_KEY, JSON.stringify(names));
+      allowlistCache = { names: new Set(names), at: Date.now() };
       return new Response(null, { status: 204 });
     }
 
@@ -214,7 +269,12 @@ export default {
     if (request.method === "GET" && url.pathname === "/pending") {
       if (!bearerOk(request, env)) return new Response("interdit", { status: 403 });
       const list = await env.PENDING.list();
-      return Response.json(list.keys.map((k) => k.metadata).filter(Boolean));
+      return Response.json(
+        list.keys
+          .filter((k) => k.name !== ALLOWLIST_KEY)
+          .map((k) => k.metadata)
+          .filter(Boolean),
+      );
     }
 
     // -- RamTracker acquitte ce qu'il a traité

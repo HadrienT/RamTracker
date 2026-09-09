@@ -42,14 +42,27 @@ vendeur** (`listings.seller_id`, et le bloc `seller` dans `listings.raw_payload`
 
 Palier gratuit Cloudflare Workers : 100 000 requêtes/jour, toujours actif, TLS et
 sous-domaine `*.workers.dev` fournis — **aucun domaine à acheter**. File dans
-Cloudflare KV (1 000 écritures/jour gratuites, large pour des notifications rares).
+Cloudflare KV, mais le palier gratuit n'accorde que **1 000 écritures/jour** : or
+eBay notifie la fermeture de *tout* compte de l'UE, ~600/jour, dont ~0 concerne
+nos vendeurs. Le Worker filtre donc (cf. §2.1) et ne met en file que l'utile.
 
 | Méthode | Chemin | Auth | Rôle |
 |---|---|---|---|
 | `GET` | `/ebay/marketplace-account-deletion?challenge_code=…` | — | `200 {"challengeResponse": sha256(code+token+url)}` |
-| `POST` | `/ebay/marketplace-account-deletion` | — | Topic `MARKETPLACE_ACCOUNT_DELETION` → `PENDING.put(notificationId, …)`, `204` |
+| `POST` | `/ebay/marketplace-account-deletion` | — | Topic + vendeur suivi → `PENDING.put(notificationId, …, expirationTtl=7j)` ; toujours `204` |
+| `POST` | `/allowlist` | `Bearer PULL_SECRET` | `["vendeur", …]` → liste des vendeurs suivis (une clé KV) |
 | `GET` | `/pending` | `Bearer PULL_SECRET` | Notifications en attente (métadonnées KV) |
-| `POST` | `/ack` | `Bearer PULL_SECRET` | `{"notificationIds": […]}` → retrait de la file |
+| `POST` | `/ack` | `Bearer PULL_SECRET` | `{"notificationIds": […]}` → retrait ; optionnel depuis le TTL |
+
+### 2.1 Filtre par vendeur suivi
+
+À chaque cycle, RamTracker publie via `/allowlist` l'ensemble
+`SELECT DISTINCT seller_id FROM listings WHERE source='ebay'` (idempotent : n'émet
+que si l'empreinte a changé, gardée dans `state_dir`). Le Worker garde cette liste
+en mémoire d'isolate (≤ 5 min) et n'écrit en file que si `username` y figure ; sinon
+`204` sec, zéro opération KV. Sans allow-list publiée ou si KV est illisible : on
+laisse passer (une écriture de trop plutôt qu'une notification perdue). Résultat :
+~600 écritures + ~600 suppressions/jour → ~15 écritures, 0 suppression.
 
 `sha256hex(challenge_code + verification_token + endpoint_url)` — ordre imposé ;
 `endpoint_url` identique **au caractère près** à l'URL déclarée dans le portail.
@@ -58,6 +71,7 @@ Cloudflare KV (1 000 écritures/jour gratuites, large pour des notifications rar
 
 ## 3. Le tirage côté RamTracker
 
+`_post_cycle` appelle `push_seller_allowlist()` (cf. §2.1) puis
 `ramtracker.runtime.ebay_deletion.drain()` :
 
 1. `GET {queue_url}/pending` avec le bearer.
@@ -84,7 +98,7 @@ mais n'est pas le mode de déploiement retenu.
 | `EBAY_VERIFICATION_TOKEN` | 32-80 car. `[A-Za-z0-9_-]`, choisi librement ; aussi dans le portail eBay **et** `wrangler secret put` |
 | `EBAY_DELETION_ENDPOINT_URL` | URL publique du Worker + chemin eBay, identique à celle du portail |
 | `ACCOUNT_DELETION_QUEUE_URL` | URL de base du Worker (sans chemin) |
-| `ACCOUNT_DELETION_PULL_SECRET` | Jeton partagé RamTracker ↔ Worker pour `/pending` et `/ack` |
+| `ACCOUNT_DELETION_PULL_SECRET` | Jeton partagé RamTracker ↔ Worker pour `/allowlist`, `/pending`, `/ack` |
 
 `drain()` sans file configurée ne fait rien ; configurée à moitié ⇒ `ConfigError`.
 
@@ -116,6 +130,7 @@ mais n'est pas le mode de déploiement retenu.
 | POST même `notificationId` deux fois | traité une seule fois |
 | POST topic inattendu | 204, aucun effacement |
 | `drain` sans file configurée | `0`, aucun appel |
+| `push_seller_allowlist` | POST `/allowlist` des vendeurs distincts triés ; ne renvoie/publie que si l'ensemble a changé |
 | `drain` à moitié configuré | `ConfigError` |
 | `drain` avec file peuplée | annonces anonymisées, `/ack` reçoit les `notificationId` |
 | `drain` rejoué | idempotent (une seule ligne `account_deletion_events`) |

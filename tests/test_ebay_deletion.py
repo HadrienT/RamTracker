@@ -267,3 +267,60 @@ def test_drain_is_idempotent_across_runs() -> None:
     with connection() as conn:
         events = conn.execute("SELECT COUNT(*) AS n FROM account_deletion_events").fetchone()["n"]
     assert events == 1
+
+
+# -- publication de l'allow-list vendeurs ----------------------------------------
+
+
+def test_push_seller_allowlist_noop_when_queue_unconfigured() -> None:
+    from ramtracker.runtime.ebay_deletion import push_seller_allowlist
+
+    assert push_seller_allowlist() == 0
+
+
+@pytest.mark.usefixtures("_queue")
+def test_push_seller_allowlist_sends_distinct_sorted_sellers() -> None:
+    import httpx
+
+    from ramtracker.runtime.ebay_deletion import push_seller_allowlist
+
+    _seed_ebay_listing("i1", "bob")
+    _seed_ebay_listing("i2", "alice")
+    _seed_ebay_listing("i3", "alice")
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["Authorization"] == "Bearer pull-secret-xyz"
+        assert request.url.path == "/allowlist"
+        captured["names"] = json.loads(request.content)
+        return httpx.Response(204)
+
+    count = push_seller_allowlist(client=httpx.Client(transport=httpx.MockTransport(handler)))
+    assert count == 2
+    assert captured["names"] == ["alice", "bob"]
+
+
+@pytest.mark.usefixtures("_queue")
+def test_push_seller_allowlist_skips_when_unchanged_then_repushes_on_change() -> None:
+    import httpx
+
+    from ramtracker.runtime.ebay_deletion import push_seller_allowlist
+
+    _seed_ebay_listing("i1", "alice")
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(204)
+
+    def run() -> int:
+        return push_seller_allowlist(client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    assert run() == 1
+    assert run() == 0  # ensemble inchangé -> aucune requête
+    assert calls == 1
+
+    _seed_ebay_listing("i2", "bob")
+    assert run() == 2
+    assert calls == 2

@@ -72,6 +72,20 @@ ACCOUNT_DELETION_PULL_SECRET=<le même jeton que PULL_SECRET>
 `ramtracker loop` et `ramtracker run-once` tirent la file automatiquement. Pour
 forcer un passage : `uv run ramtracker account-deletion-drain`.
 
+## Filtre par vendeur suivi (économie KV)
+
+eBay notifie la fermeture de **tout** compte de l'UE (~600/jour) : sans filtre,
+une écriture KV chacune dépasse le palier gratuit (1 000/jour). À chaque cycle,
+RamTracker publie via `POST /allowlist` la liste de ses vendeurs suivis
+(`listings.seller_id`, `source='ebay'`) ; le worker la garde en mémoire de
+l'isolate (rafraîchie ≤ 5 min) et **ne met en file que** les notifications visant
+un de ces vendeurs — les autres sont acquittées (`204`) sans écriture KV. Les
+entrées en file portent un `expirationTtl` de 7 jours : elles disparaissent seules,
+`/ack` reste accepté mais n'est plus indispensable.
+
+Tant qu'aucune allow-list n'a été publiée (ou si KV est illisible), le worker
+laisse passer : on préfère une écriture de trop à une notification perdue.
+
 ## Côté portail eBay
 
 *Developer Portal → Application Keys → Alerts and Notifications → Marketplace
@@ -91,8 +105,9 @@ account deletion* :
 |---|---|---|---|
 | `GET` | `/ebay/marketplace-account-deletion?challenge_code=…` | — | Réponse au challenge eBay |
 | `POST` | `/ebay/marketplace-account-deletion` | — | Réception d'une notification → file KV, `204` |
+| `POST` | `/allowlist` | `Bearer PULL_SECRET` | `["vendeur1", …]` → liste des vendeurs suivis (filtre KV) |
 | `GET` | `/pending` | `Bearer PULL_SECRET` | Liste des notifications en attente |
-| `POST` | `/ack` | `Bearer PULL_SECRET` | `{"notificationIds": […]}` → retrait de la file |
+| `POST` | `/ack` | `Bearer PULL_SECRET` | `{"notificationIds": […]}` → retrait de la file (optionnel : TTL 7 j) |
 
 ## Durcissement optionnel : allow-list d'IP eBay (Cloudflare)
 

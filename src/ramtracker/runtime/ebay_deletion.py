@@ -182,6 +182,63 @@ def drain(settings: Settings | None = None, *, client: httpx.Client | None = Non
             client.close()
 
 
+def push_seller_allowlist(
+    settings: Settings | None = None, *, client: httpx.Client | None = None
+) -> int:
+    """Publie sur le Worker la liste des vendeurs eBay effectivement suivis.
+
+    eBay notifie la fermeture de *tout* compte de l'UE (~600/jour) ; sans filtre,
+    chaque notification coûte une écriture KV et fait sauter le palier gratuit.
+    Le Worker ne met alors en file que les notifications visant un de ces vendeurs.
+
+    Idempotent : n'émet une requête que si l'ensemble a changé depuis le dernier
+    envoi (empreinte gardée dans `state_dir`). Sans file configurée, ne fait rien.
+    Renvoie le nombre de vendeurs publiés, ou `0` si rien n'a été envoyé.
+    """
+    settings = settings or get_settings()
+    url, secret = settings.account_deletion_queue_url, settings.account_deletion_pull_secret
+    if not url or not secret:
+        return 0
+
+    with session_scope() as conn:
+        names = sorted(
+            str(row["seller_id"])
+            for row in conn.execute(
+                "SELECT DISTINCT seller_id FROM listings "
+                "WHERE source = 'ebay' AND seller_id IS NOT NULL AND seller_id <> ''"
+            ).fetchall()
+        )
+
+    digest = hashlib.sha256("\n".join(names).encode("utf-8")).hexdigest()
+    marker = settings.state_dir / "ebay_allowlist.sha256"
+    try:
+        if marker.read_text(encoding="utf-8").strip() == digest:
+            return 0
+    except OSError:
+        pass
+
+    owns_client = client is None
+    client = client or httpx.Client(timeout=_DRAIN_TIMEOUT_S)
+    try:
+        resp = client.post(
+            f"{url.rstrip('/')}/allowlist",
+            headers={"Authorization": f"Bearer {secret.get_secret_value()}"},
+            json=names,
+        )
+        resp.raise_for_status()
+    except httpx.HTTPError as exc:
+        _log.warning("ebay.allowlist.push_failed", error=str(exc))
+        return 0
+    finally:
+        if owns_client:
+            client.close()
+
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(digest, encoding="utf-8")
+    _log.info("ebay.allowlist.pushed", count=len(names))
+    return len(names)
+
+
 # -- application FastAPI équivalente (test / auto-hébergement 24/7) -----------------
 
 
