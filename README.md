@@ -16,6 +16,7 @@ cp .env.example .env          # renseigner EBAY_CLIENT_ID / SECRET / NTFY_URL
 uv run ramtracker migrate
 uv run ramtracker run-once --source ebay
 uv run ramtracker loop        # ordonnanceur en continu (cadence + gigue par source)
+uv run ramtracker status      # santé : sources muettes/en erreur, marché, alertes (code retour 1 si dégradé)
 ```
 
 Tâches de développement dans le `justfile` : `just lint`, `just arch`,

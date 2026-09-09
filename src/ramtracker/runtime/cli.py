@@ -6,6 +6,7 @@ ramtracker run-once  --source ebay
 ramtracker backfill  --days 30
 ramtracker replay    --since 2026-08-01
 ramtracker report    --weekly
+ramtracker status
 ramtracker loop
 ramtracker account-deletion-drain
 ramtracker serve-account-deletion  --host 0.0.0.0 --port 8782
@@ -50,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     p_rp.add_argument("--since", required=True)
     p_rep = sub.add_parser("report")
     p_rep.add_argument("--weekly", action="store_true")
+    p_st = sub.add_parser("status")
+    p_st.add_argument("--json", action="store_true")
     sub.add_parser("loop")
     sub.add_parser("account-deletion-drain")
     p_del = sub.add_parser("serve-account-deletion")
@@ -74,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
         return _replay(args.since)
     if args.cmd == "report":
         return _report()
+    if args.cmd == "status":
+        return _status(args.json)
     if args.cmd == "loop":
         return _loop()
     if args.cmd == "account-deletion-drain":
@@ -253,6 +258,143 @@ def _report() -> int:
     except Exception as exc:
         _log.warning("report.notify_failed", error=str(exc))
     return 0
+
+
+def _fmt_ago(value: object, now: datetime) -> str:
+    if not isinstance(value, str) or not value:
+        return "jamais"
+    delta = now - datetime.fromisoformat(value)
+    secs = int(delta.total_seconds())
+    if secs < 0:
+        return "à l'instant"
+    if secs < 90:
+        return f"il y a {secs} s"
+    if secs < 5400:
+        return f"il y a {secs // 60} min"
+    if secs < 172800:
+        return f"il y a {secs // 3600} h"
+    return f"il y a {secs // 86400} j"
+
+
+def _status(as_json: bool = False) -> int:
+    """État de santé synthétique. Code de sortie 1 si une source est muette ou en erreur."""
+    from ramtracker.collect.registry import load_sources_config
+
+    apply_migrations()
+    now = utc_now()
+    health = check_health()
+    sources_cfg = load_sources_config()
+    report: dict[str, object] = {"generated_at": now.isoformat(), "ok": health.ok}
+    src_rows: list[dict[str, object]] = []
+    degraded = not health.ok
+
+    with connection() as conn:
+        for name in ("ebay", "reddit", "leboncoin"):
+            section = getattr(sources_cfg, name)
+            if not section.enabled:
+                continue
+            last = conn.execute(
+                "SELECT started_at, raw_count, qualified, alerted, error FROM source_runs "
+                "WHERE source = ? ORDER BY started_at DESC LIMIT 1",
+                (name,),
+            ).fetchone()
+            last_ok = conn.execute(
+                "SELECT MAX(started_at) AS t FROM source_runs WHERE source = ? AND error IS NULL",
+                (name,),
+            ).fetchone()["t"]
+            # Muet : aucun cycle réussi depuis deux intervalles + la gigue + 5 min.
+            stale_after = (section.interval_min * 2 + section.jitter_min + 5) * 60
+            muted = last_ok is None or (now - datetime.fromisoformat(last_ok)).total_seconds() > (
+                stale_after
+            )
+            errored = last is not None and last["error"] is not None
+            if muted or errored:
+                degraded = True
+            src_rows.append(
+                {
+                    "source": name,
+                    "last_run": last["started_at"] if last else None,
+                    "last_success": last_ok,
+                    "raw_count": last["raw_count"] if last else None,
+                    "qualified": last["qualified"] if last else None,
+                    "alerted": last["alerted"] if last else None,
+                    "error": last["error"] if last else None,
+                    "interval_min": section.interval_min,
+                    "muted": muted,
+                }
+            )
+
+        alerts_7d = conn.execute(
+            "SELECT COUNT(*) AS n FROM alerts WHERE sent_at >= ?",
+            ((now - timedelta(days=7)).isoformat(),),
+        ).fetchone()["n"]
+        last_alert = conn.execute(
+            "SELECT sent_at, eur_per_gb, price FROM alerts ORDER BY sent_at DESC LIMIT 1"
+        ).fetchone()
+        index = market.latest_index(conn)
+        index_at = conn.execute("SELECT MAX(computed_at) AS t FROM market_stats").fetchone()["t"]
+        samples = {
+            int(r["capacity_bucket"]): int(r["sample_size"])
+            for r in conn.execute(
+                "SELECT capacity_bucket, sample_size FROM market_stats "
+                "WHERE computed_at = (SELECT MAX(computed_at) FROM market_stats)"
+            ).fetchall()
+        }
+        llm_depth = conn.execute("SELECT COUNT(*) AS n FROM llm_queue").fetchone()["n"]
+        deletion = conn.execute(
+            "SELECT COUNT(*) AS n, MAX(received_at) AS last, COALESCE(SUM(scrubbed_rows), 0) AS s "
+            "FROM account_deletion_events WHERE received_at >= ?",
+            ((now - timedelta(hours=24)).isoformat(),),
+        ).fetchone()
+
+    report["sources"] = src_rows
+    report["alerts_7d"] = alerts_7d
+    report["llm_queue_depth"] = llm_depth
+    report["deletion_notifications_24h"] = deletion["n"]
+
+    if as_json:
+        import json as _json
+
+        print(_json.dumps(report, indent=2, default=str))
+        return 1 if degraded else 0
+
+    print(f"RamTracker — état · {now.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+    print(
+        f"Base            schéma v{health.schema_version} · {health.journal_mode} · "
+        f"intégrité {health.integrity}"
+    )
+    print("Sources")
+    for row in src_rows:
+        flag = "ERREUR" if row["error"] else ("MUET" if row["muted"] else "OK")
+        detail = (
+            f"{row['raw_count']} vues · {row['qualified']} qual. · {row['alerted']} alerte"
+            if row["last_run"] and not row["error"]
+            else (str(row["error"]) if row["error"] else "aucun cycle")
+        )
+        print(
+            f"  {row['source']:<11} {_fmt_ago(row['last_success'], now):<14} {detail:<34} {flag}"
+            f"   (~{row['interval_min']} min)"
+        )
+    if index:
+        buckets = "  ".join(f"{b}:{samples.get(b, 0)}" for b in sorted(index))
+        print(f"Marché          indice {_fmt_ago(index_at, now)} · échantillons  {buckets}")
+    else:
+        print("Marché          aucun indice calculé (mode observation)")
+    if last_alert:
+        print(
+            f"Alertes (7 j)   {alerts_7d} · dernière {last_alert['sent_at'][:16]}  "
+            f"{last_alert['eur_per_gb']} €/Go  {last_alert['price']} €"
+        )
+    else:
+        print(f"Alertes (7 j)   {alerts_7d}")
+    print(f"File LLM        {llm_depth} en attente")
+    print(
+        f"Suppression eBay {deletion['n']} notifs / 24 h · {deletion['s']} anonymisation(s) · "
+        f"dernier reçu {_fmt_ago(deletion['last'], now)}"
+    )
+    print()
+    print("OK" if not degraded else "DÉGRADÉ — voir ci-dessus")
+    return 1 if degraded else 0
 
 
 def _loop() -> int:

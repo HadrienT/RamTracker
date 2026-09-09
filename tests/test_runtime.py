@@ -104,3 +104,31 @@ def _runs(conn, source: str, raw_counts: list[int], *, qualified: int | None = N
                 qualified if qualified is not None else raw,
             ),
         )
+
+
+@pytest.mark.usefixtures("migrated_db")
+def test_status_command_ok_and_degraded(capsys: pytest.CaptureFixture[str]) -> None:
+    from ramtracker.core.clock import utc_now
+    from ramtracker.core.db import session_scope
+    from ramtracker.runtime.cli import main
+
+    fresh = utc_now().isoformat()
+    with session_scope() as conn:
+        conn.execute(
+            "INSERT INTO source_runs(run_id, source, started_at, duration_ms, raw_count,"
+            " new_count, qualified, alerted, challenged, error) "
+            "VALUES ('r1', 'ebay', ?, 10, 40, 40, 1, 0, 0, NULL)",
+            (fresh,),
+        )
+    assert main(["status"]) == 0
+    assert "OK" in capsys.readouterr().out
+
+    with session_scope() as conn:
+        conn.execute(
+            "INSERT INTO source_runs(run_id, source, started_at, duration_ms, raw_count,"
+            " new_count, qualified, alerted, challenged, error) "
+            "VALUES ('r2', 'ebay', ?, 10, 0, 0, 0, 0, 0, 'source_unavailable')",
+            (utc_now().isoformat(),),
+        )
+    assert main(["status"]) == 1
+    assert "DÉGRADÉ" in capsys.readouterr().out
