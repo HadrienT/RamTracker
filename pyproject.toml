@@ -1,7 +1,7 @@
 [project]
 name = "ramtracker"
 version = "0.1.0"
-description = "Agent de veille sur le marché de la mémoire serveur DDR4 ECC d'occasion"
+description = "Monitoring agent for the second-hand DDR4 ECC server memory market"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

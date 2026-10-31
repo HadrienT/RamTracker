@@ -1,73 +1,102 @@
 # RamTracker
 
-Agent de veille qui traque la DDR4 ECC sous-évaluée sur le marché de l'occasion
-(eBay, Leboncoin, Reddit), la qualifie au €/Go et envoie une notification push
-quand une annonce sort réellement du marché.
+A monitoring agent that finds underpriced DDR4 ECC memory on second-hand markets.
+It collects listings, extracts structured specifications from their titles,
+computes a price per gigabyte, and sends a push notification when a listing is
+genuinely below market.
 
-Cible matérielle : **Supermicro X10DRi-T4+** — 16 slots DIMM, DDR4 RDIMM/LRDIMM
-2133 ou 2400. La carte accepte le DDR4-2133, qui est la bande la moins chère du
-marché : c'est l'arbitrage que le projet exploite.
+The target machine is a Supermicro X10DRi-T4+: 16 DIMM slots, DDR4 RDIMM or LRDIMM.
+The project exploits a specific arbitrage. The board accepts DDR4-2133, the cheapest
+band on the market because almost nobody else wants it.
 
-## Mise en route
+## How it works
+
+```text
+collect → extract → decide → notify
+```
+
+| Package | Role |
+|---|---|
+| `collect` | One collector per marketplace: eBay, plus Leboncoin and Reddit as opt-in sources |
+| `extract` | Turns a listing into a `MemorySpec` through a deterministic cascade, with an isolated LLM fallback |
+| `decide` | Deduplication, rolling market index, alert barriers, auction handling |
+| `notify` | ntfy push messages and anti-spam limits |
+| `runtime` | Scheduler, per-source circuit breaker, inverted watchdog, CLI |
+| `core` | Configuration, logging, SQLite, data models, money, clock |
+
+The extraction cascade goes from the most deterministic step to the most expensive
+one and stops as soon as it is sure: manufacturer part number decoding, then
+grammar, coherence checks and a prefilter, then a local LLM for what remains. It
+does not guess. An implausibly low price is treated as a parsing bug, not a bargain.
+
+An alert must clear two barriers: an absolute ceiling in €/GB and a discount against
+a rolling 30-day market index. With too few samples, the index stays in observation
+mode.
+
+## Design principles
+
+- **No hardcoded price.** Every threshold lives in `configs/thresholds.yaml`.
+- **Money is exact.** Amounts are `Decimal`, including in configuration files.
+- **Parsing is tested offline.** A golden corpus of listing titles reports the
+  resolution rate at each stage of the cascade.
+- **Silence is a failure.** `ramtracker status` reports silent or failing sources
+  and exits non-zero when degraded.
+- **Boundaries are enforced.** Package dependencies are checked by `import-linter`.
+
+## Getting started
+
+Requires Python 3.13, [uv](https://docs.astral.sh/uv/) and
+[just](https://just.systems/), an eBay developer key and an
+[ntfy](https://ntfy.sh/) topic.
 
 ```bash
 uv sync --all-extras
-cp .env.example .env          # renseigner EBAY_CLIENT_ID / SECRET / NTFY_URL
+cp .env.example .env          # EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, NTFY_URL
+
 uv run ramtracker migrate
 uv run ramtracker run-once --source ebay
-uv run ramtracker loop        # ordonnanceur en continu (cadence + gigue par source)
-uv run ramtracker status      # santé : sources muettes/en erreur, marché, alertes (code retour 1 si dégradé)
+uv run ramtracker loop        # continuous scheduler, with per-source cadence and jitter
+uv run ramtracker status      # health of sources, market and alerts
 ```
 
-Tâches de développement dans le `justfile` : `just lint`, `just arch`,
-`just test`, `just test-golden`, `just report`.
-
-## Architecture
-
-Six packages sous `src/ramtracker/`, contrats d'import vérifiés par `import-linter` :
-
-| Package | Rôle |
+| File | Purpose |
 |---|---|
-| `core` | config, logging, erreurs, base SQLite, DTO, monnaie, hachage, horloge |
-| `collect` | un collecteur par source → `RawListing` (eBay, Leboncoin, Reddit) |
-| `extract` | cascade déterministe `RawListing` → `MemorySpec` ; repli LLM isolé dans `extract.llm` |
-| `decide` | dédoublonnage, indice de marché glissant, double barrière, enchères |
-| `notify` | rendu ntfy, anti-spam |
-| `runtime` | ordonnanceur, disjoncteur par source, chien de garde inversé, CLI |
+| `configs/sources.yaml` | Enabled sources, queries, cadence |
+| `configs/compat.yaml` | Memory the target board accepts |
+| `configs/thresholds.yaml` | Barriers, guards, auction policy, anti-spam |
 
-Le parseur (`extract`) se teste **hors ligne** contre le corpus doré
-(`tests/fixtures/titles.jsonl`) : `just test-golden` affiche le taux de
-résolution par étage. Aucun seuil de prix n'est écrit en dur — tout vit dans
-`configs/thresholds.yaml` et se compare à l'indice glissant.
+## Development
+
+```bash
+just lint          # ruff and mypy
+just arch          # architecture contracts
+just test          # everything except live tests
+just test-golden   # golden corpus, with a resolution table per stage
+just report
+```
+
+## Deployment
+
+`deploy/ramtracker.service` runs it under systemd, and `deploy/docker-compose.yml`
+is the container alternative.
+
+eBay requires an always-on account deletion endpoint under GDPR and CCPA. A free
+[Cloudflare Worker](deploy/worker/) acknowledges notifications around the clock
+and queues them, and RamTracker pulls that queue, so nothing is exposed from home.
+
+## Status
+
+Collection, extraction, market index, notifications, scheduler and the replay loop
+are implemented and tested. Some values still need confirming against live data,
+such as a few marketplace identifiers and manufacturer decoding tables; they are
+marked `[À CONFIRMER]` in `configs/` and the code. The golden corpus is a starting
+set of 100 titles, meant to grow.
 
 ## Documentation
 
-- **[blueprint/](blueprint/)** — la spécification d'implémentation normative.
-  Commencer par [blueprint/README.md](blueprint/README.md) puis
-  [blueprint/00-PRIMER.md](blueprint/00-PRIMER.md).
-- **[docs/blueprint.html](docs/blueprint.html)** — le document narratif (le
-  *pourquoi* des décisions). Non normatif.
-- **[tools/charge_llm.py](tools/charge_llm.py)** — modèle d'entonnoir : charge
-  réelle sur le serveur LLM local (partagé avec OpenHands).
+The specification is in [`blueprint/`](blueprint/README.md) and the design rationale
+in [`docs/blueprint.html`](docs/blueprint.html), both in French.
 
-## État
+## License
 
-Implémentation des WP01→WP10 en place : collecte eBay/Leboncoin/Reddit, cascade
-d'extraction (références constructeur + grammaire + cohérence + préfiltre + repli
-LLM local), indice de marché, double barrière, notifications ntfy, ordonnanceur
-avec disjoncteur et chien de garde inversé, boucle de rejeu et rapport
-hebdomadaire, suppression de compte eBay (conformité RGPD/CCPA : Worker Cloudflare
-gratuit + `ramtracker account-deletion-drain`).
-
-Points marqués `[À CONFIRMER]` dans `configs/` et le code (id de catégorie eBay,
-chemins JSON Leboncoin, en-têtes ntfy, `response_format` du serveur LLM, tables
-de décodage Hynix/Micron) : à lever au **[WP00](blueprint/wp/WP00-reconnaissance.md)**
-avec les spikes de `spikes/` et un vrai relevé de 150 titres pour le corpus doré
-(le fichier livré est un corpus de départ à étendre).
-
-Déploiement : `deploy/ramtracker.service` (systemd, `Type=simple`, tourne à côté
-d'OpenHands) ou `deploy/docker-compose.yml`. La conformité RGPD/CCPA d'eBay est
-assurée sans rien exposer depuis la maison : un Cloudflare Worker gratuit
-(`deploy/worker/`, voir son README) accuse réception 24/7 et RamTracker tire la
-file. `deploy/ramtracker-account-deletion.service` reste disponible pour un
-auto-hébergement 24/7 optionnel.
+[MIT](LICENSE)

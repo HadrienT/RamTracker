@@ -4,12 +4,12 @@
 # Les montants sont des Decimal sérialisés en chaîne.
 
 barriers:
-  hard_ceiling_eur_per_gb: "3.50"   # barrière absolue
-  min_discount: 0.25                # barrière relative, contre l'indice glissant
+  hard_ceiling_eur_per_gb: "2.00"   # absolute barrier
+  min_discount: 0.00                # relative barrier: any discount below the ceiling qualifies
 
 guards:
   plausibility_floor_eur_per_gb: "0.50"   # en dessous : bug de parsing, renvoi au LLM
-  min_total_gb: 32
+  min_total_gb: 8                     # includes the smallest modules
   min_confidence: 0.80                    # seuil de court-circuit de la cascade
 
 shipping:
@@ -25,7 +25,7 @@ market_index:
   window_days: 30
   min_sample_size: 20               # en dessous : mode observation
   refresh_interval_min: 60
-  capacity_buckets: [8, 16, 32, 64]
+  capacity_buckets: [8, 16, 32, 64]  # includes 8 GB and 16 GB modules
 
 observation_mode:
   enabled: true
