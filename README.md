@@ -5,6 +5,8 @@ It collects listings, extracts structured specifications from their titles,
 computes a price per gigabyte, and sends a push notification when a listing is
 genuinely below market.
 
+**[How it works: interactive map](https://hadrient.github.io/atlas-pages/RamTracker/)**
+
 The target machine is a Supermicro X10DRi-T4+: 16 DIMM slots, DDR4 RDIMM or LRDIMM.
 The project exploits a specific arbitrage. The board accepts DDR4-2133, the cheapest
 band on the market because almost nobody else wants it.
